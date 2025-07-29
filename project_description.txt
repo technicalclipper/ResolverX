@@ -1,0 +1,179 @@
+🔄 Project: ResolverX (ETH ↔ TRON Fusion+ Swap Marketplace)
+✨ Vision
+Enable secure, decentralized, and trustless cross-chain token swaps between Ethereum and Tron using Hashed Timelock Contracts (HTLCs) — with a resolver marketplace where anyone can plug in, provide liquidity, and compete to fulfill swaps.
+
+🧑‍🤝‍🧑 Actors
+Actor	Role
+User	Wants to swap ETH ↔ TRX
+Resolver	Provides liquidity on one side (ETH or TRX), runs a bot
+Relayer Bot	Backend service monitoring blockchains, extracting secrets
+Resolver Bot	Custom bot (template) used by each resolver
+Frontend UI	User interface for swapping and resolver management
+Backend API	Tracks swaps, secrets, handles resolver coordination
+
+🧩 Core Components
+Component	Tech Stack / Role
+ETH HTLC	Solidity
+TRON HTLC	Solidity-for-Tron or Contract ABI + TronWeb
+Backend API	Node.js + Express
+Relayer Bot	Watches for secret reveals & routes them
+Resolver Bot	Forkable Node.js template with 4 endpoints
+Frontend	React, WalletConnect (MetaMask + TronLink)
+Database	PostgreSQL or MongoDB to track swaps and resolvers
+
+🔐 HTLC Overview
+Both Ethereum and Tron HTLCs follow the same logic:
+
+Lock funds with:
+
+hashlock (H = hash(s))
+
+timelock (expiry)
+
+recipient
+
+Only claimable by providing preimage s
+
+Refundable after timelock expires
+
+🔁 Swap Flow (ETH → TRX)
+User picks direction = ETH → TRX on UI
+
+User selects resolver from list
+
+Backend generates random secret s and H = hash(s)
+
+User locks ETH on Ethereum HTLC using H and resolver’s address
+
+Backend watches for lock, then calls resolver's /lock-tron
+
+Resolver bot locks TRX to user’s address on Tron using same H
+
+User clicks "Claim TRX" → supplies secret s to claim on Tron
+
+Relayer bot extracts s from Tron chain, finds matching hashlock
+
+Relayer calls resolver’s /claim-eth with s
+
+Resolver claims back ETH using s from Ethereum HTLC
+
+✅ Both parties completed — funds moved across chains.
+
+🔁 Swap Flow (TRX → ETH)
+Same as above, reversed:
+
+User selects TRX → ETH direction
+
+Backend generates s, computes H
+
+User locks TRX in Tron HTLC
+
+Backend watches Tron → notifies resolver via /lock-eth
+
+Resolver bot locks ETH to user in ETH HTLC
+
+User reveals s by claiming ETH
+
+Relayer bot gets s from Ethereum
+
+Relayer calls /claim-tron → resolver gets TRX back
+
+✅ Bidirectional, trustless.
+
+📡 Resolver Bot Template
+A public forkable template for any developer to become a resolver.
+We provide a plug-and-play Node.js resolver bot with these API endpoints:
+
+Endpoint	Method	Purpose
+/lock-tron	POST	Lock TRX for ETH→TRX
+/claim-eth	POST	Claim ETH with secret
+/lock-eth	POST	Lock ETH for TRX→ETH
+/claim-tron	POST	Claim TRX with secret
+/status	GET	Healthcheck
+/info	GET	Liquidity, supported pairs, fees
+
+✅ Resolvers simply:
+
+Fork the repo
+
+Add .env with ETH/TRON private keys
+
+Run the bot
+
+Register themselves via the UI with their endpoint
+
+Anyone can join and provide liquidity to earn execution fees.
+
+🧠 Backend Responsibilities
+Tracks swap records by hashlock
+
+Generates s and stores s, H
+
+Watches both chains (via relayer bot)
+
+Routes lock & claim instructions to resolver bots
+
+Stores all HTLC tx hashes, timestamps, statuses
+
+Exposes API for frontend (get resolvers, start swap, etc.)
+
+🧠 Relayer Bot Responsibilities
+Listens for claim() txs on ETH & TRON
+
+Extracts revealed s when user claims
+
+Matches hash(s) to existing swap
+
+Sends s to other chain's resolver
+
+Ensures resolver claims locked refund
+
+🧾 Swap DB Model
+Field	Description
+id	Swap ID
+direction	eth→trx or trx→eth
+hashlock	H = hash(s)
+secret	s (nullable until revealed)
+user_address	Wallet address of user
+resolver_id	Foreign key to resolver
+status	initiated, locked, claimed, refunded
+eth_lock_tx	Tx hash
+tron_lock_tx	Tx hash
+timestamps	created, expires, completed
+
+🧠 Resolver DB Model
+Field	Description
+id	Unique ID
+endpoint	Bot API URL
+supportedPairs	eth→trx, trx→eth
+liquidity	Amounts per token
+feePercent	Optional resolver fee
+status	active, paused
+
+🖥 Frontend UI
+🔄 Swap Form
+Direction toggle (ETH ↔ TRX)
+
+Amount input
+
+Resolver list with fee/liquidity
+
+Execute Swap button
+
+📡 Resolver Registration
+Name, endpoint
+
+Supported directions
+
+Wallet proof
+
+Optional liquidity metadata
+
+📈 Swap Status
+Step-by-step tracker
+
+Expiry countdown
+
+Auto "Claim" button
+
+Secret reveal confirmation
