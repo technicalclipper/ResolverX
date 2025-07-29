@@ -1,0 +1,21 @@
+🧾 Swap DB Model
+Field	Description
+id	Swap ID
+direction	eth→trx or trx→eth
+hashlock	H = hash(s)
+secret	s (nullable until revealed)
+user_address	Wallet address of user
+resolver_id	Foreign key to resolver
+status	initiated, locked, claimed, refunded
+eth_lock_tx	Tx hash
+tron_lock_tx	Tx hash
+timestamps	created, expires, completed
+
+🧠 Resolver DB Model
+Field	Description
+id	Unique ID
+endpoint	Bot API URL
+supportedPairs	eth→trx, trx→eth
+liquidity	Amounts per token
+feePercent	Optional resolver fee
+status	active, paused
