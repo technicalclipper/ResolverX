@@ -1,21 +1,45 @@
 🧾 Swap DB Model
 Field	Description
-id	Swap ID
+id	Swap ID (Primary Key)
 direction	eth→trx or trx→eth
-hashlock	H = hash(s)
-secret	s (nullable until revealed)
-user_address	Wallet address of user
-resolver_id	Foreign key to resolver
+hashlock	H = hash(s) (bytes32)
+secret	s (bytes32, nullable until revealed)
+user_address	Wallet address of user (sender)
+resolver_address	Wallet address of resolver (recipient on source chain)
+amount	Token amount being swapped
+token_address	Token contract address (address(0) for native ETH/TRX)
 status	initiated, locked, claimed, refunded
-eth_lock_tx	Tx hash
-tron_lock_tx	Tx hash
-timestamps	created, expires, completed
+eth_lock_tx	Ethereum lock transaction hash
+tron_lock_tx	TRON lock transaction hash
+eth_claim_tx	Ethereum claim transaction hash (nullable)
+tron_claim_tx	TRON claim transaction hash (nullable)
+eth_refund_tx	Ethereum refund transaction hash (nullable)
+tron_refund_tx	TRON refund transaction hash (nullable)
+timelock	Unix timestamp when refund becomes available
+created_at	Timestamp when swap was initiated
+updated_at	Timestamp when swap was last updated
+completed_at	Timestamp when swap was completed (nullable)
 
 🧠 Resolver DB Model
 Field	Description
-id	Unique ID
+id	Unique ID (Primary Key)
+resolver_address	Wallet address of resolver
 endpoint	Bot API URL
-supportedPairs	eth→trx, trx→eth
-liquidity	Amounts per token
-feePercent	Optional resolver fee
-status	active, paused
+supportedPairs	eth→trx, trx→eth (JSON array)
+liquidity_eth	Available ETH liquidity amount
+liquidity_trx	Available TRX liquidity amount
+feePercent	Optional resolver fee percentage
+status	active, paused, inactive
+created_at	Timestamp when resolver was registered
+updated_at	Timestamp when resolver was last updated
+
+🧠 Swap Events DB Model (Optional - for monitoring)
+Field	Description
+id	Event ID (Primary Key)
+swap_id	Foreign key to swap
+event_type	HTLCLocked, HTLCClaimed, HTLCRefunded
+chain	ethereum, tron
+transaction_hash	Transaction hash where event occurred
+block_number	Block number where event occurred
+event_data	JSON data from event
+timestamp	Timestamp when event occurred

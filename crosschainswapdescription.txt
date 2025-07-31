@@ -1,4 +1,4 @@
-# **Complete 1inch Cross-Chain Swap Documentation**
+# **Complete ResolverX Cross-Chain Swap Documentation**
 
 ## **Table of Contents**
 1. [Overview](#overview)
@@ -16,254 +16,95 @@
 
 ## **1. Overview**
 
-The 1inch Cross-Chain Swap system enables **atomic cross-chain swaps** between different blockchain networks (e.g., Ethereum ↔ TRON) using escrow contracts and the Limit Order Protocol (LOP). The system ensures that either both parties receive their desired tokens or neither does, preventing partial execution.
+The ResolverX Cross-Chain Swap system enables **atomic cross-chain swaps** between Ethereum (Sepolia) and TRON (Nile testnet) using a single HTLC (Hashed Timelock Contract) deployed on both chains. The system ensures that either both parties receive their desired tokens or neither does, preventing partial execution.
 
 ### **Key Components:**
-- **EscrowFactory**: Main factory contract that deploys escrow clones
-- **EscrowSrc**: Source chain escrow that holds user's tokens initially
-- **EscrowDst**: Destination chain escrow that holds resolver's tokens
-- **Limit Order Protocol**: Handles order creation and execution
-- **Resolver**: Facilitates the cross-chain swap process
+- **AtomicSwap Contract**: Single HTLC contract deployed on both chains
+- **Backend API**: Node.js + Express to coordinate swaps
+- **Relayer Bot**: Monitors both chains for secret reveals
+- **Resolver Bot**: Template for liquidity providers
+- **Frontend UI**: User interface for swaps
 
 ---
 
 ## **2. Architecture**
 
-### **Contract Hierarchy:**
+### **Contract Structure:**
 ```
-EscrowFactory (Main Factory)
-├── BaseEscrowFactory (Abstract Base)
-├── EscrowSrc (Source Chain Escrow)
-├── EscrowDst (Destination Chain Escrow)
-├── BaseEscrow (Abstract Base Escrow)
-└── Escrow (Abstract Escrow)
+AtomicSwap Contract (Same on both chains)
+├── lock() - Lock funds with hashlock
+├── claim() - Claim funds with preimage
+└── refund() - Refund after timelock expires
 ```
 
 ### **Network Setup:**
 ```
-Ethereum (Source Chain)
-├── EscrowFactory
-├── EscrowSrc Implementation
-└── EscrowDst Implementation
+Ethereum (Sepolia Testnet)
+└── AtomicSwap Contract
 
-TRON (Destination Chain)
-├── EscrowFactory
-├── EscrowSrc Implementation
-└── EscrowDst Implementation
+TRON (Nile Testnet)  
+└── AtomicSwap Contract
 ```
 
 ---
 
 ## **3. Contract Deployment**
 
-### **Contracts to Deploy on Each Network:**
+### **Contracts to Deploy:**
 
-#### **For Both Ethereum and TRON:**
-
-**Main Contracts:**
-1. `EscrowFactory.sol` - Main factory contract
-2. `BaseEscrowFactory.sol` - Abstract base factory
-3. `EscrowSrc.sol` - Source chain escrow implementation
-4. `EscrowDst.sol` - Destination chain escrow implementation
-5. `BaseEscrow.sol` - Abstract base escrow
-6. `Escrow.sol` - Abstract escrow
-7. `MerkleStorageInvalidator.sol` - Merkle tree validation
-8. `EscrowFactoryContext.sol` - Context constants
-
-**Libraries:**
-9. `libraries/ImmutablesLib.sol` - Immutables handling
-10. `libraries/TimelocksLib.sol` - Timelock management
-11. `libraries/ProxyHashLib.sol` - Proxy bytecode hashing
-
-**Interfaces:**
-12. `interfaces/IBaseEscrow.sol` - Base escrow interface
-13. `interfaces/IEscrow.sol` - Escrow interface
-14. `interfaces/IEscrowSrc.sol` - Source escrow interface
-15. `interfaces/IEscrowDst.sol` - Destination escrow interface
-16. `interfaces/IEscrowFactory.sol` - Factory interface
-17. `interfaces/IMerkleStorageInvalidator.sol` - Merkle invalidator interface
-18. `interfaces/IResolverExample.sol` - Resolver example interface
-
-**Total: 18 files per network**
+#### **Single Contract on Each Network:**
+1. `HTLC_Contract.sol` - AtomicSwap contract (same on both chains)
 
 ### **Deployment Parameters:**
 
-#### **Ethereum:**
+#### **For Both Ethereum (Sepolia) and TRON (Nile):**
 ```solidity
-EscrowFactory factory = new EscrowFactory(
-    0x111111125421cA6dc452d289314280a0f8842A65, // LOP
-    0x6B175474E89094C44Da98b954EedeAC495271d0F, // DAI
-    0xACCe550000159e70908C0499a1119D04e7039C28, // Access Token
-    ownerAddress,
-    691200, // Rescue delay (8 days)
-    691200  // Rescue delay (8 days)
-);
-```
-
-#### **TRON:**
-```solidity
-EscrowFactory factory = new EscrowFactory(
-    0x111111125421cA6dc452d289314280a0f8842A65, // LOP (same)
-    [TRON_DAI_ADDRESS],                          // TRON DAI equivalent
-    0xACCe550000159e70908C0499a1119D04e7039C28, // Access Token (same)
-    ownerAddress,
-    691200, // Rescue delay (8 days)
-    691200  // Rescue delay (8 days)
-);
+// No constructor parameters needed
+AtomicSwap atomicSwap = new AtomicSwap();
 ```
 
 ---
 
 ## **4. Complete Swap Workflow**
 
-### **Example: ETH → TRON Swap**
+### **Example: ETH → TRX Swap**
 
 #### **Phase 1: Setup (Pre-Swap)**
 ```solidity
-// 1. User creates limit order on Ethereum
-IOrderMixin.Order memory order = {
-    maker: userAddress,           // User's address
-    receiver: address(0),         // No specific receiver
-    makerAsset: ETH_ADDRESS,      // ETH token address
-    takerAsset: FAKE_TOKEN,       // Fake token (always returns true)
-    makingAmount: 1 ether,        // 1 ETH
-    takingAmount: 1 ether,        // 1 ETH worth of fake token
-    makerTraits: makerTraits      // Order parameters
-};
+// 1. Backend generates random secret and hashlock
+bytes32 secret = generateRandomSecret();
+bytes32 hashlock = keccak256(abi.encodePacked(secret));
 
-// 2. User signs the order
-bytes32 orderHash = keccak256(abi.encode(order));
-(uint8 v, bytes32 r, bytes32 s) = vm.sign(userPrivateKey, orderHash);
-```
-
-#### **Phase 2: Source Chain Escrow Creation (Ethereum)**
-```solidity
-// 3. Resolver calls Limit Order Protocol
-limitOrderProtocol.fillOrderArgs(
-    order,
-    r,
-    vs,
-    makingAmount,
-    takerTraits,
-    args
+// 2. User locks ETH on Ethereum (Sepolia)
+atomicSwap.lock(
+    hashlock,           // H = hash(s)
+    resolverAddress,    // Resolver's address (recipient)
+    address(0),         // Native ETH
+    amount,             // ETH amount
+    timelock            // Expiry timestamp
 );
-
-// 4. LOP automatically calls EscrowFactory._postInteraction()
-function _postInteraction(...) internal override {
-    // Extract swap parameters
-    ExtraDataArgs calldata extraDataArgs = /* extract from extraData */;
-    
-    // Create immutables for EscrowSrc
-    IBaseEscrow.Immutables memory immutables = {
-        orderHash: orderHash,
-        hashlock: extraDataArgs.hashlockInfo,  // Hash of secret
-        maker: order.maker,                    // User's address
-        taker: Address.wrap(uint160(taker)),   // Resolver's address
-        token: order.makerAsset,               // ETH token
-        amount: makingAmount,                  // 1 ETH
-        safetyDeposit: extraDataArgs.deposits >> 128,  // Safety deposit
-        timelocks: extraDataArgs.timelocks.setDeployedAt(block.timestamp)
-    };
-    
-    // Deploy EscrowSrc clone
-    bytes32 salt = immutables.hashMem();
-    address escrow = _deployEscrow(salt, 0, ESCROW_SRC_IMPLEMENTATION);
-    
-    // Verify ETH tokens are locked
-    if (escrow.balance < immutables.safetyDeposit || 
-        IERC20(order.makerAsset.get()).safeBalanceOf(escrow) < makingAmount) {
-        revert InsufficientEscrowBalance();
-    }
-}
 ```
 
-#### **Phase 3: Destination Chain Escrow Creation (TRON)**
+#### **Phase 2: Destination Chain Lock (TRON)**
 ```solidity
-// 5. Resolver calls createDstEscrow on TRON
-function createDstEscrow(
-    IBaseEscrow.Immutables calldata dstImmutables, 
-    uint256 srcCancellationTimestamp
-) external payable {
-    // Validate native token amount
-    address token = dstImmutables.token.get();
-    uint256 nativeAmount = dstImmutables.safetyDeposit;
-    if (token == address(0)) {
-        nativeAmount += dstImmutables.amount;  // TRX amount + safety deposit
-    }
-    if (msg.value != nativeAmount) revert InsufficientEscrowBalance();
-    
-    // Set deployment timestamp
-    IBaseEscrow.Immutables memory immutables = dstImmutables;
-    immutables.timelocks = immutables.timelocks.setDeployedAt(block.timestamp);
-    
-    // Validate timelock coordination
-    if (immutables.timelocks.get(TimelocksLib.Stage.DstCancellation) > srcCancellationTimestamp) {
-        revert InvalidCreationTime();
-    }
-    
-    // Deploy EscrowDst clone
-    bytes32 salt = immutables.hashMem();
-    address escrow = _deployEscrow(salt, msg.value, ESCROW_DST_IMPLEMENTATION);
-    
-    // Transfer TRX tokens to escrow
-    if (token != address(0)) {
-        IERC20(token).safeTransferFrom(msg.sender, escrow, immutables.amount);
-    }
-}
+// 3. Resolver locks TRX on TRON (Nile)
+atomicSwap.lock(
+    hashlock,           // Same hashlock
+    userAddress,        // User's address (recipient)
+    address(0),         // Native TRX
+    amount,             // TRX amount
+    timelock            // Same expiry
+);
 ```
 
-#### **Phase 4: Withdrawal (Using Secret)**
+#### **Phase 3: Claim (Using Secret)**
 ```solidity
-// 6. Resolver withdraws from Source Chain (Ethereum)
-function withdraw(bytes32 secret, Immutables calldata immutables) external {
-    // Verify caller is taker (resolver)
-    require(msg.sender == immutables.taker.get(), "InvalidCaller");
-    
-    // Verify timelock (after withdrawal period)
-    require(block.timestamp >= immutables.timelocks.get(TimelocksLib.Stage.SrcWithdrawal), "InvalidTime");
-    require(block.timestamp < immutables.timelocks.get(TimelocksLib.Stage.SrcCancellation), "InvalidTime");
-    
-    // Call internal withdrawal
-    _withdrawTo(secret, msg.sender, immutables);
-}
+// 4. User claims TRX on TRON using secret
+atomicSwap.claim(secret);
 
-function _withdrawTo(bytes32 secret, address target, Immutables calldata immutables) internal {
-    // Verify immutables match
-    require(/* immutables validation */, "InvalidImmutables");
-    
-    // Verify secret matches hashlock
-    require(keccak256(abi.encode(secret)) == immutables.hashlock, "InvalidSecret");
-    
-    // Transfer tokens
-    IERC20(immutables.token.get()).safeTransfer(target, immutables.amount);  // 1 ETH to resolver
-    _ethTransfer(msg.sender, immutables.safetyDeposit);  // Safety deposit to resolver
-    
-    emit EscrowWithdrawal(secret);
-}
-
-// 7. Resolver withdraws from Destination Chain (TRON)
-function withdraw(bytes32 secret, Immutables calldata immutables) external {
-    // Verify caller is taker (resolver)
-    require(msg.sender == immutables.taker.get(), "InvalidCaller");
-    
-    // Verify timelock
-    require(block.timestamp >= immutables.timelocks.get(TimelocksLib.Stage.DstWithdrawal), "InvalidTime");
-    require(block.timestamp < immutables.timelocks.get(TimelocksLib.Stage.DstCancellation), "InvalidTime");
-    
-    // Call internal withdrawal
-    _withdraw(secret, immutables);
-}
-
-function _withdraw(bytes32 secret, Immutables calldata immutables) internal {
-    // Verify immutables and secret
-    require(/* validation */, "Invalid");
-    
-    // Transfer tokens to maker (user)
-    _uniTransfer(immutables.token.get(), immutables.maker.get(), immutables.amount);  // TRX to user
-    _ethTransfer(msg.sender, immutables.safetyDeposit);  // Safety deposit to resolver
-    
-    emit EscrowWithdrawal(secret);
-}
+// 5. Relayer bot extracts secret from TRON chain
+// 6. Relayer calls resolver's claim function on Ethereum
+atomicSwap.claim(secret); // Resolver claims ETH
 ```
 
 ---
@@ -273,60 +114,50 @@ function _withdraw(bytes32 secret, Immutables calldata immutables) internal {
 ### **Complete Function Call Flow:**
 
 #### **Setup Phase:**
-1. `EscrowFactory.addressOfEscrowSrc()` - Get future escrow address
-2. `EscrowFactory.addressOfEscrowDst()` - Get future escrow address
+1. Backend generates secret and hashlock
+2. User approves ETH spending (if needed)
 
-#### **Source Chain (Ethereum):**
-3. `limitOrderProtocol.fillOrderArgs()` - Fill order (triggers escrow deployment)
-4. `EscrowFactory._postInteraction()` - Called automatically by LOP
-5. `EscrowFactory._deployEscrow()` - Deploy EscrowSrc clone
-6. `IERC20.safeTransfer()` - Transfer ETH to escrow
+#### **Source Chain (Ethereum Sepolia):**
+3. `atomicSwap.lock()` - User locks ETH
+4. Backend monitors for HTLCLocked event
 
-#### **Destination Chain (TRON):**
-7. `EscrowFactory.createDstEscrow()` - Deploy EscrowDst clone
-8. `IERC20.safeTransferFrom()` - Transfer TRX to escrow
+#### **Destination Chain (TRON Nile):**
+5. `atomicSwap.lock()` - Resolver locks TRX
+6. Backend monitors for HTLCLocked event
 
-#### **Withdrawal Phase:**
-9. `EscrowSrc.withdraw()` - Withdraw ETH from source escrow
-10. `EscrowDst.withdraw()` - Withdraw TRX from destination escrow
+#### **Claim Phase:**
+7. `atomicSwap.claim()` - User claims TRX on TRON
+8. Relayer extracts secret from claim transaction
+9. `atomicSwap.claim()` - Resolver claims ETH on Ethereum
 
-#### **Cancellation Phase (if needed):**
-11. `EscrowSrc.cancel()` - Cancel source escrow
-12. `EscrowDst.cancel()` - Cancel destination escrow
-
-#### **Emergency Functions:**
-13. `EscrowSrc.publicWithdraw()` - Public withdrawal on source
-14. `EscrowDst.publicWithdraw()` - Public withdrawal on destination
-15. `EscrowSrc.publicCancel()` - Public cancellation on source
-16. `BaseEscrow.rescueFunds()` - Emergency fund recovery
+#### **Refund Phase (if needed):**
+10. `atomicSwap.refund()` - User refunds ETH if swap fails
+11. `atomicSwap.refund()` - Resolver refunds TRX if swap fails
 
 ---
 
 ## **6. Source vs Destination**
 
-### **Source Chain (Ethereum in ETH→TRON):**
+### **Source Chain (Ethereum Sepolia in ETH→TRX):**
 - **Purpose**: Where user's original tokens are locked
-- **Escrow**: `EscrowSrc` holds ETH tokens
-- **Deployment**: Triggered by order fill through LOP
-- **Withdrawal**: Resolver withdraws ETH to themselves
-- **Cancellation**: User gets ETH back if swap fails
+- **Lock**: User locks ETH, recipient is resolver
+- **Claim**: Resolver claims ETH using secret
+- **Refund**: User gets ETH back if swap fails
 
-### **Destination Chain (TRON in ETH→TRON):**
+### **Destination Chain (TRON Nile in ETH→TRX):**
 - **Purpose**: Where user receives their desired tokens
-- **Escrow**: `EscrowDst` holds TRX tokens
-- **Deployment**: Manual call by resolver
-- **Withdrawal**: Resolver sends TRX to user
-- **Cancellation**: Resolver gets TRX back if swap fails
+- **Lock**: Resolver locks TRX, recipient is user
+- **Claim**: User claims TRX using secret
+- **Refund**: Resolver gets TRX back if swap fails
 
 ### **Key Differences:**
 
 | Aspect | Source Chain | Destination Chain |
 |--------|--------------|-------------------|
-| **Token Flow** | User → Escrow | Resolver → Escrow → User |
-| **Deployment Trigger** | Order fill (automatic) | Manual resolver call |
-| **Withdrawal Recipient** | Resolver | User |
-| **Cancellation Recipient** | User (original owner) | Resolver (original owner) |
-| **Timelock Priority** | Higher priority | Lower priority |
+| **Token Flow** | User → Contract | Resolver → Contract → User |
+| **Lock Recipient** | Resolver | User |
+| **Claim Caller** | Resolver | User |
+| **Refund Caller** | User | Resolver |
 
 ---
 
@@ -336,103 +167,31 @@ function _withdraw(bytes32 secret, Immutables calldata immutables) internal {
 
 #### **Step 1: Create Workspace**
 1. Open [Remix IDE](https://remix.ethereum.org/)
-2. Create new workspace: "1inch-cross-chain-swap"
-3. Create folder structure:
-   ```
-   contracts/
-   ├── libraries/
-   └── interfaces/
-   ```
+2. Create new workspace: "ResolverX-cross-chain-swap"
+3. Upload `HTLC_Contract.sol`
 
-#### **Step 2: Add All Required Files**
-Copy these 18 files to Remix:
-
-**Main Contracts (8 files):**
-```
-contracts/
-├── EscrowFactory.sol
-├── BaseEscrowFactory.sol
-├── EscrowSrc.sol
-├── EscrowDst.sol
-├── BaseEscrow.sol
-├── Escrow.sol
-├── MerkleStorageInvalidator.sol
-└── EscrowFactoryContext.sol
-```
-
-**Libraries (3 files):**
-```
-contracts/libraries/
-├── ImmutablesLib.sol
-├── TimelocksLib.sol
-└── ProxyHashLib.sol
-```
-
-**Interfaces (7 files):**
-```
-contracts/interfaces/
-├── IBaseEscrow.sol
-├── IEscrow.sol
-├── IEscrowSrc.sol
-├── IEscrowDst.sol
-├── IEscrowFactory.sol
-├── IMerkleStorageInvalidator.sol
-└── IResolverExample.sol
-```
-
-#### **Step 3: Configure Compiler**
+#### **Step 2: Configure Compiler**
 1. Go to **Solidity Compiler** tab
-2. Set compiler version: **0.8.23**
-3. Enable optimization: **1000000 runs**
-4. Set **via-IR**: true (if available)
+2. Set compiler version: **0.8.0 or higher**
+3. Enable optimization: **200 runs**
 
-#### **Step 4: Install Dependencies**
-1. Go to **Package Manager** tab
-2. Install packages:
-   ```
-   openzeppelin-contracts
-   limit-order-protocol
-   limit-order-settlement
-   solidity-utils
-   ```
-
-#### **Step 5: Compile**
-1. Click **Compile EscrowFactory.sol**
+#### **Step 3: Compile**
+1. Click **Compile HTLC_Contract.sol**
 2. Ensure no compilation errors
 
-#### **Step 6: Deploy**
+#### **Step 4: Deploy**
 1. Go to **Deploy & Run Transactions** tab
-2. Select `EscrowFactory` contract
-3. Set constructor parameters:
+2. Select `AtomicSwap` contract
+3. No constructor parameters needed
+4. Deploy on both networks:
+   - **Ethereum Sepolia testnet**
+   - **TRON Nile testnet**
 
-**For Ethereum:**
-```solidity
-limitOrderProtocol: 0x111111125421cA6dc452d289314280a0f8842A65
-feeToken: 0x6B175474E89094C44Da98b954EedeAC495271d0F (DAI)
-accessToken: 0xACCe550000159e70908C0499a1119D04e7039C28
-owner: [Your Address]
-rescueDelaySrc: 691200 (8 days)
-rescueDelayDst: 691200 (8 days)
-```
-
-**For TRON:**
-```solidity
-limitOrderProtocol: 0x111111125421cA6dc452d289314280a0f8842A65
-feeToken: [TRON DAI equivalent address]
-accessToken: 0xACCe550000159e70908C0499a1119D04e7039C28
-owner: [Your Address]
-rescueDelaySrc: 691200 (8 days)
-rescueDelayDst: 691200 (8 days)
-```
-
-#### **Step 7: Verify Deployment**
+#### **Step 5: Verify Deployment**
 After deployment, call these functions to verify:
 ```solidity
-// Check implementations were deployed
-address srcImpl = factory.ESCROW_SRC_IMPLEMENTATION();
-address dstImpl = factory.ESCROW_DST_IMPLEMENTATION();
-
-// Should return valid addresses (not zero)
+// Check contract is working
+// Try creating a test swap
 ```
 
 ---
@@ -441,51 +200,36 @@ address dstImpl = factory.ESCROW_DST_IMPLEMENTATION();
 
 ### **1. Secret-Based Unlocking**
 ```solidity
-// Secret is hash of user's private key
-bytes32 secret = keccak256(abi.encode(userPrivateKey));
-bytes32 hashlock = keccak256(abi.encode(secret));
+// Secret is randomly generated by backend
+bytes32 secret = generateRandomSecret();
+bytes32 hashlock = keccak256(abi.encodePacked(secret));
 
-// Only correct secret unlocks escrows
-require(keccak256(abi.encode(secret)) == immutables.hashlock, "InvalidSecret");
+// Only correct secret unlocks funds
+require(keccak256(abi.encodePacked(_preimage)) == s.hashlock, "Invalid secret");
 ```
 
-### **2. Deterministic Addresses**
+### **2. Timelock Protection**
 ```solidity
-// Escrow addresses computed from swap parameters
-bytes32 salt = immutables.hashMem();
-address escrow = Create2.computeAddress(salt, PROXY_BYTECODE_HASH, FACTORY);
+// Funds can only be claimed before timelock expires
+require(block.timestamp < s.timelock, "Expired");
 
-// Prevents front-running attacks
+// Funds can only be refunded after timelock expires
+require(block.timestamp >= s.timelock, "Too early");
 ```
 
-### **3. Timelock Protection**
+### **3. State Management**
 ```solidity
-// Different time windows for different operations
-enum Stage {
-    SrcWithdrawal,        // Private withdrawal on source
-    SrcPublicWithdrawal,  // Public withdrawal on source
-    SrcCancellation,      // Private cancellation on source
-    SrcPublicCancellation, // Public cancellation on source
-    DstWithdrawal,        // Private withdrawal on destination
-    DstPublicWithdrawal,  // Public withdrawal on destination
-    DstCancellation       // Cancellation on destination
-}
+enum State { INVALID, OPEN, CLAIMED, REFUNDED }
+// Prevents double-spending and invalid operations
 ```
 
-### **4. Access Token System**
+### **4. Access Control**
 ```solidity
-// Public operations require access token
-modifier onlyAccessTokenHolder() {
-    if (_ACCESS_TOKEN.balanceOf(msg.sender) == 0) revert InvalidCaller();
-    _;
-}
-```
+// Only recipient can claim
+require(msg.sender == s.recipient, "Not recipient");
 
-### **5. Safety Deposits**
-```solidity
-// Incentivize resolvers to complete swaps
-uint256 safetyDeposit = extraDataArgs.deposits >> 128;
-_ethTransfer(msg.sender, immutables.safetyDeposit);
+// Only sender can refund
+require(msg.sender == s.sender, "Not sender");
 ```
 
 ---
@@ -494,42 +238,21 @@ _ethTransfer(msg.sender, immutables.safetyDeposit);
 
 ### **Timelock Structure:**
 ```solidity
-struct SrcTimelocks {
-    uint32 withdrawal;        // Private withdrawal period
-    uint32 publicWithdrawal;  // Public withdrawal period
-    uint32 cancellation;      // Private cancellation period
-    uint32 publicCancellation; // Public cancellation period
-}
-
-struct DstTimelocks {
-    uint32 withdrawal;        // Private withdrawal period
-    uint32 publicWithdrawal;  // Public withdrawal period
-    uint32 cancellation;      // Cancellation period
-}
+uint256 timelock; // Unix timestamp when refund becomes available
 ```
 
 ### **Time Flow Example:**
 ```
-Source Chain (Ethereum):
-[Deploy] --5min--> [Private Withdrawal] --5min--> [Public Withdrawal] --5min--> [Private Cancel] --5min--> [Public Cancel]
-
-Destination Chain (TRON):
-[Deploy] --5min--> [Private Withdrawal] --5min--> [Public Withdrawal] --5min--> [Cancel]
+[Lock] --30min--> [Claim Window] --30min--> [Refund Available]
 ```
 
 ### **Timelock Functions:**
 ```solidity
-// Get timelock value for specific stage
-function get(Timelocks timelocks, Stage stage) internal pure returns (uint256) {
-    uint256 data = Timelocks.unwrap(timelocks);
-    uint256 bitShift = uint256(stage) * 32;
-    return (data >> _DEPLOYED_AT_OFFSET) + uint32(data >> bitShift);
-}
+// Check if claim is still valid
+require(block.timestamp < s.timelock, "Expired");
 
-// Set deployment timestamp
-function setDeployedAt(Timelocks timelocks, uint256 value) internal pure returns (Timelocks) {
-    return Timelocks.wrap((Timelocks.unwrap(timelocks) & ~uint256(_DEPLOYED_AT_MASK)) | value << _DEPLOYED_AT_OFFSET);
-}
+// Check if refund is available
+require(block.timestamp >= s.timelock, "Too early");
 ```
 
 ---
@@ -538,46 +261,35 @@ function setDeployedAt(Timelocks timelocks, uint256 value) internal pure returns
 
 ### **Common Errors:**
 
-#### **1. Insufficient Balance**
+#### **1. Already Exists**
 ```solidity
-error InsufficientEscrowBalance();
-// Thrown when escrow doesn't have required tokens
+require(swaps[_hashlock].state == State.INVALID, "Already exists");
+// Thrown when trying to create duplicate swap
 ```
 
-#### **2. Invalid Timelock**
+#### **2. Not Open**
 ```solidity
-error InvalidTime();
-// Thrown when operation attempted outside allowed time window
+require(s.state == State.OPEN, "Not open");
+// Thrown when swap is not in OPEN state
 ```
 
-#### **3. Invalid Secret**
+#### **3. Expired**
 ```solidity
-error InvalidSecret();
-// Thrown when secret doesn't match hashlock
+require(block.timestamp < s.timelock, "Expired");
+// Thrown when trying to claim after timelock
 ```
 
-#### **4. Invalid Caller**
+#### **4. Too Early**
 ```solidity
-error InvalidCaller();
+require(block.timestamp >= s.timelock, "Too early");
+// Thrown when trying to refund before timelock
+```
+
+#### **5. Not Recipient/Sender**
+```solidity
+require(msg.sender == s.recipient, "Not recipient");
+require(msg.sender == s.sender, "Not sender");
 // Thrown when unauthorized address calls function
-```
-
-#### **5. Invalid Creation Time**
-```solidity
-error InvalidCreationTime();
-// Thrown when destination escrow creation timing is invalid
-```
-
-### **Error Recovery:**
-```solidity
-// Emergency fund rescue
-function rescueFunds(address token, uint256 amount, Immutables calldata immutables) external {
-    require(msg.sender == immutables.taker.get(), "InvalidCaller");
-    require(block.timestamp >= immutables.timelocks.rescueStart(RESCUE_DELAY), "InvalidTime");
-    
-    _uniTransfer(token, msg.sender, amount);
-    emit FundsRescued(token, amount);
-}
 ```
 
 ---
@@ -585,20 +297,17 @@ function rescueFunds(address token, uint256 amount, Immutables calldata immutabl
 ## **Summary**
 
 ### **Key Points:**
-1. **18 files** need to be added to Remix for each network
-2. **Same files** for both Ethereum and TRON (only parameters differ)
-3. **EscrowSrc** deployed automatically when order is filled
-4. **EscrowDst** deployed manually by resolver
-5. **Secret-based** unlocking ensures atomic swaps
-6. **Timelock system** prevents indefinite locking
-7. **Safety deposits** incentivize proper execution
+1. **Single contract** deployed on both chains
+2. **Same contract** for both Ethereum and TRON
+3. **Secret-based** unlocking ensures atomic swaps
+4. **Timelock system** prevents indefinite locking
+5. **State management** prevents double-spending
 
 ### **Deployment Checklist:**
-- ✅ Add all 18 contract files to Remix
-- ✅ Install external dependencies
-- ✅ Set correct compiler settings
-- ✅ Deploy EscrowFactory with correct parameters
-- ✅ Verify implementation addresses
-- ✅ Test basic functionality
+- ✅ Upload HTLC_Contract.sol to Remix
+- ✅ Compile with Solidity 0.8.0+
+- ✅ Deploy on Ethereum Sepolia testnet
+- ✅ Deploy on TRON Nile testnet
+- ✅ Test basic lock/claim/refund functionality
 
-This system ensures **atomic cross-chain swaps** where either both parties get their desired tokens or neither does, with strong security mechanisms and economic incentives for proper execution! 🚀
+This simplified system ensures **atomic cross-chain swaps** with strong security mechanisms and clear state management! 🚀

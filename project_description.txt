@@ -2,6 +2,11 @@
 ✨ Vision
 Enable secure, decentralized, and trustless cross-chain token swaps between Ethereum and Tron using Hashed Timelock Contracts (HTLCs) — with a resolver marketplace where anyone can plug in, provide liquidity, and compete to fulfill swaps.
 
+
+chains: eth sepolia  and  tron nile testnet
+
+
+
 🧑‍🤝‍🧑 Actors
 Actor	Role
 User	Wants to swap ETH ↔ TRX
