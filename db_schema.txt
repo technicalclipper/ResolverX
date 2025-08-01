@@ -10,6 +10,7 @@ user_eth_address	User's Ethereum wallet address (0x...)
 user_tron_address	User's TRON wallet address (T...)
 resolver_eth_address	Resolver's Ethereum wallet address (0x...)
 resolver_tron_address	Resolver's TRON wallet address (T...)
+resolver_id	Foreign key to resolvers table
 
 -- Amount Fields (for fee system)
 amount	Total amount user pays (user_amount + resolver_fee)
@@ -75,6 +76,7 @@ CREATE TABLE swaps (
     user_tron_address VARCHAR(34) NOT NULL,
     resolver_eth_address VARCHAR(42) NOT NULL,
     resolver_tron_address VARCHAR(34) NOT NULL,
+    resolver_id INTEGER REFERENCES resolvers(id),
     
     -- Amount fields (for fee system)
     amount VARCHAR(50) NOT NULL,
