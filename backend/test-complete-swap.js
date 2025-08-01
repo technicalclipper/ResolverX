@@ -4,8 +4,8 @@ const BASE_URL = 'http://localhost:3000';
 
 // Test configuration
 const TEST_CONFIG = {
-    amount: '0.001', // 0.001 ETH/TRX for testing
-    direction: 'eth→trx',
+    amount: '22.54', // 22.54 TRX for testing (22.54 TRX = 0.002 ETH)
+    direction: 'trx→eth',
     // User wallets (should be different from resolver)
     user: {
         ethAddress: '0x4E9DE56262c7108C23e74658CE6489e4576c8263', // User's ETH wallet
@@ -51,8 +51,8 @@ async function testCompleteHTLCSwap() {
         // Check if balances are sufficient
         const ethBalance = parseFloat(balanceResponse.data.balances.ethereum.balance);
         const trxBalance = parseFloat(balanceResponse.data.balances.tron.balance);
-        const requiredEth = 0.001;
-        const requiredTrx = 0.001; // 1:1 ratio for testing
+        const requiredEth = 0.002;
+        const requiredTrx = 22.54; // 22.54 TRX = 0.002 ETH at current rate
 
         if (ethBalance < requiredEth) {
             console.log('⚠️ Warning: Insufficient ETH balance for testing');
@@ -74,7 +74,7 @@ async function testCompleteHTLCSwap() {
             userTronAddress: TEST_CONFIG.user.tronAddress,
             resolverEthAddress: TEST_CONFIG.resolver.ethAddress, // Self-resolver for testing
             resolverTronAddress: TEST_CONFIG.resolver.tronAddress,   // Self-resolver for testing
-            amount: '0.001' // Use 0.001 for testing
+            amount: '0.002' // Use 0.002 for testing
         });
         
         const swap = swapResponse.data.swap;
@@ -107,7 +107,7 @@ async function testCompleteHTLCSwap() {
         // 3. Execute ETH → TRX swap
         console.log('3. Executing ETH → TRX swap...');
         const executeResponse = await axios.post(`${BASE_URL}/swaps/${swap.hashlock}/execute-eth-to-trx`, {
-            amount: '0.001' // Use 0.001 for testing
+            amount: '0.002' // Use 0.002 for testing
         });
         
         console.log('✅ Swap execution result:', {
@@ -228,7 +228,7 @@ async function testTRXToETHSwap() {
         // 2. Execute TRX → ETH swap
         console.log('2. Executing TRX → ETH swap...');
         const executeResponse = await axios.post(`${BASE_URL}/swaps/${swap.hashlock}/execute-trx-to-eth`, {
-            amount: '0.001' // Use 0.001 for testing
+            amount: '0.002' // Use 0.002 for testing
         });
         
         console.log('✅ TRX → ETH swap execution result:', {

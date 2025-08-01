@@ -22,7 +22,9 @@ const CONFIG = {
         PRIVATE_KEY: 'b779319f391485f205ea57ed3e77dc0d42af523239d9f65b36cd819e5806e40d'
     },
     TIMELOCK_DURATION: 30 * 60, // 30 minutes in seconds
-    SWAP_AMOUNT: ethers.parseEther('0.001') // 0.001 ETH/TRX for testing
+    SWAP_AMOUNT: ethers.parseEther('0.001') // 0.001 ETH for testing
+    // Exchange rate: 1 ETH = 11,265.12 TRX
+    // So 0.001 ETH = 11.27 TRX
 };
 
 // In-memory storage for swaps (replace with database in production)
@@ -230,10 +232,9 @@ class ContractInteractor {
             const tronBalance = await this.tronWeb.trx.getBalance(this.tronWallet);
             const tronBalanceTrx = tronBalance / 1000000; // Convert SUN to TRX
             
-            // Convert amount from wei to TRX, then to SUN
-            const amountInEth = parseFloat(ethers.formatEther(amount)); // Convert wei to ETH
-            const amountInTrx = amountInEth; // 1:1 ratio for testing
-            const amountInSun = Math.floor(amountInTrx * 1000000); // Convert TRX to SUN
+            // Amount is already in SUN format, just use it directly
+            const amountInSun = parseInt(amount);
+            const amountInTrx = amountInSun / 1000000; // Convert SUN to TRX for display
 
             console.log('💰 TRON Balance Check:');
             console.log('   Current Balance:', tronBalanceTrx, 'TRX');
@@ -262,6 +263,14 @@ class ContractInteractor {
             const result = await this.tronWeb.contract().at(CONFIG.TRON_NILE.CONTRACT_ADDRESS)
                 .then(contract => {
                     console.log('📝 Calling TRON contract lock function...');
+                    console.log('🔧 Final TRON parameters:', {
+                        hashlock,
+                        recipient,
+                        token: token,
+                        amount: tronAmount,
+                        timelock: tronTimelock,
+                        callValue: tronAmount
+                    });
                     return contract.lock(
                         hashlock,
                         recipient,
@@ -677,7 +686,8 @@ app.post('/swaps/:hashlock/execute-eth-to-trx', async (req, res) => {
 
         const timelock = calculateTimelock();
         const ethAmount = ethers.parseEther(amount);
-        const trxAmount = ethers.parseEther(amount); // Convert to proper format for TRON
+        const trxAmountInTrx = parseFloat(amount) * 11265.12; // Convert ETH to TRX using exchange rate
+        const trxAmountInSun = Math.floor(trxAmountInTrx * 1000000); // Convert TRX to SUN
 
         // Step 1: Lock ETH on Ethereum
         console.log('Step 1: Locking ETH on Ethereum...');
@@ -704,7 +714,7 @@ app.post('/swaps/:hashlock/execute-eth-to-trx', async (req, res) => {
             hashlock,
             swap.user_tron_address, // Use user's TRON address
             '0x0000000000000000000000000000000000000000', // Native TRX
-            trxAmount.toString(), // Convert to string for TRON
+            trxAmountInSun.toString(), // Use SUN amount for TRON
             timelock
         );
 
@@ -746,8 +756,10 @@ app.post('/swaps/:hashlock/execute-trx-to-eth', async (req, res) => {
         }
 
         const timelock = calculateTimelock();
-        const trxAmount = ethers.parseEther(amount); // Convert to proper format for TRON
-        const ethAmount = ethers.parseEther(amount); // Convert to proper format for ETH
+        const trxAmountInTrx = parseFloat(amount); // Amount is already in TRX
+        const trxAmountInSun = Math.floor(trxAmountInTrx * 1000000); // Convert TRX to SUN
+        const ethAmountInEth = trxAmountInTrx / 11265.12; // Convert TRX to ETH using exchange rate
+        const ethAmount = ethers.parseEther(ethAmountInEth.toFixed(18)); // Convert to wei
 
         // Step 1: Lock TRX on TRON
         console.log('Step 1: Locking TRX on TRON...');
@@ -755,7 +767,7 @@ app.post('/swaps/:hashlock/execute-trx-to-eth', async (req, res) => {
             hashlock,
             swap.resolver_tron_address, // Use resolver's TRON address
             '0x0000000000000000000000000000000000000000', // Native TRX
-            trxAmount.toString(), // Convert to string for TRON
+            trxAmountInSun.toString(), // Use SUN amount for TRON
             timelock
         );
 
@@ -921,22 +933,23 @@ app.get('/balances', async (req, res) => {
         
         // Calculate test amounts in different units
         const testAmountEth = 0.001;
-        const testAmountTrx = 0.001;
+        const testAmountTrx = testAmountEth * 11265.12; // 1 ETH = 11,265.12 TRX
         const testAmountEthWei = ethers.parseEther('0.001').toString();
-        const testAmountTrxSun = Math.floor(0.001 * 1000000).toString(); // Convert TRX to SUN
+        const testAmountTrxSun = Math.floor(testAmountTrx * 1000000).toString(); // Convert TRX to SUN
         
         res.json({
             success: true,
             balances,
             testAmount: {
                 eth: `${testAmountEth} ETH`,
-                trx: `${testAmountTrx} TRX`,
+                trx: `${testAmountTrx.toFixed(2)} TRX`,
                 ethWei: testAmountEthWei,
                 trxSun: testAmountTrxSun
             },
             conversion: {
                 ethToWei: '1 ETH = 1000000000000000000 WEI',
-                trxToSun: '1 TRX = 1000000 SUN'
+                trxToSun: '1 TRX = 1000000 SUN',
+                exchangeRate: `1 ETH = ${11265.12} TRX`
             }
         });
     } catch (error) {
