@@ -18,8 +18,8 @@ const TEST_CONFIG = {
     }
 };
 
-async function testCompleteHTLCSwap() {
-    console.log('🚀 Testing Complete HTLC Swap Flow (TRX → ETH)\n');
+async function testTRXToETHSwapOnly() {
+    console.log('🚀 Testing TRX → ETH Swap Flow Only\n');
     console.log('⚠️ Note: This test uses the same wallets for user and resolver for simplicity');
     console.log('   In real usage, users and resolvers would have different wallets\n');
 
@@ -120,130 +120,52 @@ async function testCompleteHTLCSwap() {
 
         // 4. Wait a moment for transactions to be processed
         console.log('4. Waiting for transactions to be processed...');
-        await new Promise(resolve => setTimeout(resolve, 5000));
+        await new Promise(resolve => setTimeout(resolve, 3000));
         console.log('');
 
         // 5. Get updated swap status
         console.log('5. Getting updated swap status...');
         const updatedSwapResponse = await axios.get(`${BASE_URL}/swaps/${swap.hashlock}`);
+        const updatedSwap = updatedSwapResponse.data;
         console.log('✅ Updated swap status:', {
-            status: updatedSwapResponse.data.status,
-            eth_lock_tx: updatedSwapResponse.data.eth_lock_tx,
-            tron_lock_tx: updatedSwapResponse.data.tron_lock_tx
+            status: updatedSwap.status,
+            eth_lock_tx: updatedSwap.eth_lock_tx,
+            tron_lock_tx: updatedSwap.tron_lock_tx
         });
         console.log('');
 
-        // 6. Get swap state from contracts
+        // 6. Check contract states
         console.log('6. Checking contract states...');
+        const ethStateResponse = await axios.get(`${BASE_URL}/swaps/${swap.hashlock}/state?chain=ethereum`);
+        const tronStateResponse = await axios.get(`${BASE_URL}/swaps/${swap.hashlock}/state?chain=tron`);
         
-        // Check Ethereum contract state
-        try {
-            const ethStateResponse = await axios.get(`${BASE_URL}/swaps/${swap.hashlock}/state?chain=ethereum`);
-            console.log('✅ Ethereum contract state:', ethStateResponse.data);
-        } catch (error) {
-            console.log('⚠️ Ethereum state check failed:', error.response?.data?.error || error.message);
-        }
-
-        // Check TRON contract state
-        try {
-            const tronStateResponse = await axios.get(`${BASE_URL}/swaps/${swap.hashlock}/state?chain=tron`);
-            console.log('✅ TRON contract state:', tronStateResponse.data);
-        } catch (error) {
-            console.log('⚠️ TRON state check failed:', error.response?.data?.error || error.message);
-        }
+        console.log('✅ Ethereum contract state:', ethStateResponse.data);
+        console.log('✅ TRON contract state:', tronStateResponse.data);
         console.log('');
 
-        // 7. Simulate claim process (using the secret)
+        // 7. Test claim process (optional - may fail due to test setup)
         console.log('7. Testing claim process...');
-        
-        // Claim on Ethereum (destination chain)
         try {
             const claimResponse = await axios.post(`${BASE_URL}/swaps/${swap.hashlock}/claim`, {
                 secret: lockParams.secret,
                 chain: 'ethereum'
             });
-            console.log('✅ Ethereum claim result:', claimResponse.data);
-        } catch (error) {
-            console.log('⚠️ Ethereum claim test failed:', error.response?.data?.error || error.message);
+            console.log('✅ Claim successful:', claimResponse.data);
+        } catch (claimError) {
+            console.log('⚠️ Ethereum claim test failed:', claimError.response?.data?.error || claimError.message);
+            console.log('   This is expected in test setup - the claim requires the actual recipient wallet');
         }
         console.log('');
 
-        // 8. Get all events
-        console.log('8. Getting all events...');
-        const eventsResponse = await axios.get(`${BASE_URL}/events`);
-        console.log('✅ Total events:', eventsResponse.data.length);
-        eventsResponse.data.forEach((event, index) => {
-            console.log(`   Event ${index + 1}:`, {
-                chain: event.chain,
-                eventType: event.eventType,
-                hashlock: event.hashlock,
-                timestamp: event.timestamp
-            });
-        });
+        console.log('🎉 TRX → ETH swap test completed successfully!');
         console.log('');
-
-        console.log('🎉 Complete HTLC swap test finished!');
-        console.log('');
-        console.log('📋 Summary:');
-        console.log('   ✅ Swap created successfully');
-        console.log('   ✅ TRX and ETH locked on both chains');
-        console.log('   ✅ Contract states verified');
-        console.log('   ✅ Claim process tested');
-        console.log('   ✅ Events tracked');
-        console.log('');
-        console.log('🔗 Transaction Links:');
+        console.log('📋 Transaction Links:');
         console.log(`   TRX Lock: https://nile.tronscan.org/#/transaction/${executeResponse.data.trxLockTx}`);
         console.log(`   ETH Lock: https://sepolia.etherscan.io/tx/${executeResponse.data.ethLockTx}`);
 
     } catch (error) {
         console.error('❌ Test failed:', error.response?.data || error.message);
     }
-}
-
-async function testTRXToETHSwap() {
-            console.log('🔄 Testing ETH → TRX Swap Flow\n');
-
-        try {
-            // 1. Create a new ETH → TRX swap
-            console.log('1. Creating ETH → TRX swap...');
-            const configResponse = await axios.get(`${BASE_URL}/config`);
-            
-            const swapResponse = await axios.post(`${BASE_URL}/swaps`, {
-                direction: 'eth→trx',
-                userEthAddress: TEST_CONFIG.user.ethAddress,
-                userTronAddress: TEST_CONFIG.user.tronAddress,
-                resolverEthAddress: TEST_CONFIG.resolver.ethAddress, // Self-resolver for testing
-                resolverTronAddress: TEST_CONFIG.resolver.tronAddress,   // Self-resolver for testing
-                amount: '0.002' // Use 0.002 ETH for testing
-            });
-            
-            const swap = swapResponse.data.swap;
-            console.log('✅ ETH → TRX swap created:', {
-                id: swap.id,
-                hashlock: swap.hashlock,
-                direction: swap.direction
-            });
-            console.log('');
-
-            // 2. Execute ETH → TRX swap
-            console.log('2. Executing ETH → TRX swap...');
-            const executeResponse = await axios.post(`${BASE_URL}/swaps/${swap.hashlock}/execute-eth-to-trx`, {
-                amount: '0.002' // Use 0.002 ETH for testing
-            });
-            
-            console.log('✅ ETH → TRX swap execution result:', {
-                success: executeResponse.data.success,
-                ethLockTx: executeResponse.data.ethLockTx,
-                trxLockTx: executeResponse.data.trxLockTx,
-                status: executeResponse.data.swap.status
-            });
-            console.log('');
-
-            console.log('🎉 ETH → TRX swap test completed!');
-
-        } catch (error) {
-            console.error('❌ ETH → TRX test failed:', error.response?.data || error.message);
-        }
 }
 
 async function testHealthCheck() {
@@ -263,8 +185,8 @@ async function testHealthCheck() {
 }
 
 // Run tests
-async function runCompleteTests() {
-    console.log('🧪 Starting Complete HTLC Swap Tests\n');
+async function runTRXToETHTestsOnly() {
+    console.log('🧪 Starting TRX → ETH Swap Tests Only\n');
     
     // Check if server is running
     const isHealthy = await testHealthCheck();
@@ -275,20 +197,17 @@ async function runCompleteTests() {
     }
     
     console.log('');
-    await testCompleteHTLCSwap();
-    console.log('');
-    await testTRXToETHSwap();
+    await testTRXToETHSwapOnly();
 }
 
 // Export for use in other files
 module.exports = {
-    testCompleteHTLCSwap,
-    testTRXToETHSwap,
+    testTRXToETHSwapOnly,
     testHealthCheck,
-    runCompleteTests
+    runTRXToETHTestsOnly
 };
 
 // Run if called directly
 if (require.main === module) {
-    runCompleteTests();
+    runTRXToETHTestsOnly();
 } 

@@ -3,6 +3,11 @@ const ethers = require('ethers');
 const crypto = require('crypto');
 const TronWeb = require('tronweb');
 const { eth_sepolia_abi } = require('./abi');
+require('dotenv').config();
+
+// Database Models
+const SwapModel = require('./database/models/Swap');
+const ResolverModel = require('./database/models/Resolver');
 
 const app = express();
 app.use(express.json());
@@ -27,9 +32,9 @@ const CONFIG = {
     // So 0.001 ETH = 11.27 TRX
 };
 
-// In-memory storage for swaps (replace with database in production)
-const swaps = new Map();
-const swapEvents = [];
+// Database storage for swaps (replaced in-memory storage)
+// const swaps = new Map(); // Removed - now using database
+// const swapEvents = []; // Removed - now using database
 
 // Initialize providers
 const ethProvider = new ethers.JsonRpcProvider(CONFIG.ETH_SEPOLIA.RPC_URL);
@@ -561,26 +566,54 @@ app.get('/health', (req, res) => {
 });
 
 // Get all swaps
-app.get('/swaps', (req, res) => {
-    const swapsArray = Array.from(swaps.values());
-    res.json(swapsArray);
+app.get('/swaps', async (req, res) => {
+    try {
+        const swapsArray = await SwapModel.getAll();
+        res.json(swapsArray);
+    } catch (error) {
+        console.error('Error fetching swaps:', error);
+        res.status(500).json({ error: 'Failed to fetch swaps' });
+    }
 });
 
 // Get swap by hashlock
-app.get('/swaps/:hashlock', (req, res) => {
-    const { hashlock } = req.params;
-    const swap = swaps.get(hashlock);
-    
-    if (!swap) {
-        return res.status(404).json({ error: 'Swap not found' });
+app.get('/swaps/:hashlock', async (req, res) => {
+    try {
+        const { hashlock } = req.params;
+        const swap = await SwapModel.getByHashlock(hashlock);
+        
+        if (!swap) {
+            return res.status(404).json({ error: 'Swap not found' });
+        }
+        
+        res.json(swap);
+    } catch (error) {
+        console.error('Error fetching swap:', error);
+        res.status(500).json({ error: 'Failed to fetch swap' });
     }
-    
-    res.json(swap);
 });
 
-// Get swap events
-app.get('/events', (req, res) => {
-    res.json(swapEvents);
+// Get all resolvers
+app.get('/resolvers', async (req, res) => {
+    try {
+        const resolvers = await ResolverModel.getActive();
+        res.json(resolvers);
+    } catch (error) {
+        console.error('Error fetching resolvers:', error);
+        res.status(500).json({ error: 'Failed to fetch resolvers' });
+    }
+});
+
+// Get resolvers by direction
+app.get('/resolvers/:direction', async (req, res) => {
+    try {
+        const { direction } = req.params;
+        const resolvers = await ResolverModel.getByDirection(direction);
+        res.json(resolvers);
+    } catch (error) {
+        console.error('Error fetching resolvers by direction:', error);
+        res.status(500).json({ error: 'Failed to fetch resolvers' });
+    }
 });
 
 // Create new swap
@@ -616,33 +649,29 @@ app.post('/swaps', async (req, res) => {
         const hashlock = generateHashlock(secret);
         const timelock = calculateTimelock();
 
-        // Create swap record with dual addresses
-        const swap = {
-            id: swaps.size + 1,
+        // Calculate amounts for fee system
+        const userAmount = amount || CONFIG.SWAP_AMOUNT.toString();
+        const resolverFee = '0.0001'; // 0.1% fee for now
+        const totalAmount = (parseFloat(userAmount) + parseFloat(resolverFee)).toString();
+
+        // Create swap record with dual addresses and fee system
+        const swapData = {
             direction,
             hashlock,
-            secret: null, // Will be revealed when claimed
             user_eth_address: userEthAddress,
             user_tron_address: userTronAddress,
             resolver_eth_address: resolverEthAddress,
             resolver_tron_address: resolverTronAddress,
-            amount: amount || CONFIG.SWAP_AMOUNT.toString(),
+            amount: totalAmount,
+            user_amount: userAmount,
+            resolver_fee: resolverFee,
             token_address: '0x0000000000000000000000000000000000000000', // Native token
             status: 'initiated',
-            eth_lock_tx: null,
-            tron_lock_tx: null,
-            eth_claim_tx: null,
-            tron_claim_tx: null,
-            eth_refund_tx: null,
-            tron_refund_tx: null,
-            timelock,
-            created_at: new Date(),
-            updated_at: new Date(),
-            completed_at: null
+            timelock
         };
 
-        // Store swap
-        swaps.set(hashlock, swap);
+        // Store swap in database
+        const swap = await SwapModel.create(swapData);
 
         res.json({
             success: true,
@@ -678,8 +707,8 @@ app.post('/swaps/:hashlock/execute-eth-to-trx', async (req, res) => {
 
         console.log('🚀 Executing ETH → TRX swap for hashlock:', hashlock);
 
-        // Get swap details
-        const swap = swaps.get(hashlock);
+        // Get swap details from database
+        const swap = await SwapModel.getByHashlock(hashlock);
         if (!swap) {
             return res.status(404).json({ error: 'Swap not found' });
         }
@@ -703,10 +732,9 @@ app.post('/swaps/:hashlock/execute-eth-to-trx', async (req, res) => {
             return res.status(400).json({ error: 'ETH lock failed', details: ethLockResult.error });
         }
 
-        // Update swap status
-        swap.eth_lock_tx = ethLockResult.txHash;
-        swap.status = 'eth_locked';
-        swaps.set(hashlock, swap);
+        // Update swap status in database
+        await SwapModel.updateTransaction(hashlock, 'eth_lock_tx', ethLockResult.txHash);
+        await SwapModel.updateStatus(hashlock, 'eth_locked');
 
         // Step 2: Lock TRX on TRON
         console.log('Step 2: Locking TRX on TRON...');
@@ -722,10 +750,9 @@ app.post('/swaps/:hashlock/execute-eth-to-trx', async (req, res) => {
             return res.status(400).json({ error: 'TRX lock failed', details: trxLockResult.error });
         }
 
-        // Update swap status
-        swap.tron_lock_tx = trxLockResult.txHash;
-        swap.status = 'both_locked';
-        swaps.set(hashlock, swap);
+        // Update swap status in database
+        await SwapModel.updateTransaction(hashlock, 'tron_lock_tx', trxLockResult.txHash);
+        await SwapModel.updateStatus(hashlock, 'both_locked');
 
         res.json({
             success: true,
@@ -749,8 +776,8 @@ app.post('/swaps/:hashlock/execute-trx-to-eth', async (req, res) => {
 
         console.log('🚀 Executing TRX → ETH swap for hashlock:', hashlock);
 
-        // Get swap details
-        const swap = swaps.get(hashlock);
+        // Get swap details from database
+        const swap = await SwapModel.getByHashlock(hashlock);
         if (!swap) {
             return res.status(404).json({ error: 'Swap not found' });
         }
@@ -775,10 +802,9 @@ app.post('/swaps/:hashlock/execute-trx-to-eth', async (req, res) => {
             return res.status(400).json({ error: 'TRX lock failed', details: trxLockResult.error });
         }
 
-        // Update swap status
-        swap.tron_lock_tx = trxLockResult.txHash;
-        swap.status = 'trx_locked';
-        swaps.set(hashlock, swap);
+        // Update swap status in database
+        await SwapModel.updateTransaction(hashlock, 'tron_lock_tx', trxLockResult.txHash);
+        await SwapModel.updateStatus(hashlock, 'trx_locked');
 
         // Step 2: Lock ETH on Ethereum
         console.log('Step 2: Locking ETH on Ethereum...');
@@ -794,10 +820,9 @@ app.post('/swaps/:hashlock/execute-trx-to-eth', async (req, res) => {
             return res.status(400).json({ error: 'ETH lock failed', details: ethLockResult.error });
         }
 
-        // Update swap status
-        swap.eth_lock_tx = ethLockResult.txHash;
-        swap.status = 'both_locked';
-        swaps.set(hashlock, swap);
+        // Update swap status in database
+        await SwapModel.updateTransaction(hashlock, 'eth_lock_tx', ethLockResult.txHash);
+        await SwapModel.updateStatus(hashlock, 'both_locked');
 
         res.json({
             success: true,
@@ -833,16 +858,25 @@ app.post('/swaps/:hashlock/claim', async (req, res) => {
         }
 
         if (result.success) {
-            // Update swap status
-            const swap = swaps.get(hashlock);
-            if (swap) {
+            console.log('✅ Claim successful, updating database...');
+            console.log('   Chain:', chain);
+            console.log('   Transaction Hash:', result.txHash);
+            
+            // Update swap status in database
+            try {
                 if (chain === 'ethereum') {
-                    swap.eth_claim_tx = result.txHash;
+                    console.log('   Updating ETH claim transaction...');
+                    await SwapModel.updateTransaction(hashlock, 'eth_claim_tx', result.txHash);
                 } else {
-                    swap.tron_claim_tx = result.txHash;
+                    console.log('   Updating TRON claim transaction...');
+                    await SwapModel.updateTransaction(hashlock, 'tron_claim_tx', result.txHash);
                 }
-                swap.status = 'claimed';
-                swaps.set(hashlock, swap);
+                console.log('   Updating status to claimed...');
+                await SwapModel.updateStatus(hashlock, 'claimed');
+                console.log('✅ Database updated successfully');
+            } catch (dbError) {
+                console.error('❌ Database update failed:', dbError);
+                // Still return success since the claim worked
             }
 
             res.json({
@@ -864,26 +898,31 @@ app.post('/swaps/:hashlock/claim', async (req, res) => {
 });
 
 // Get lock parameters for a swap
-app.get('/swaps/:hashlock/lock-params', (req, res) => {
-    const { hashlock } = req.params;
-    const swap = swaps.get(hashlock);
-    
-    if (!swap) {
-        return res.status(404).json({ error: 'Swap not found' });
-    }
+app.get('/swaps/:hashlock/lock-params', async (req, res) => {
+    try {
+        const { hashlock } = req.params;
+        const swap = await SwapModel.getByHashlock(hashlock);
+        
+        if (!swap) {
+            return res.status(404).json({ error: 'Swap not found' });
+        }
 
     // Generate fresh secret and hashlock for this request
     const secret = generateSecret();
     const newHashlock = generateHashlock(secret);
     const timelock = calculateTimelock();
 
-    res.json({
-        hashlock: newHashlock,
-        timelock,
-        secret, // Only for testing
-        direction: swap.direction,
-        amount: swap.amount
-    });
+        res.json({
+            hashlock: newHashlock,
+            timelock,
+            secret, // Only for testing
+            direction: swap.direction,
+            amount: swap.amount
+        });
+    } catch (error) {
+        console.error('Error getting lock params:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
 });
 
 // Get swap state from contract
