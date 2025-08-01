@@ -85,7 +85,8 @@ class ContractInteractor {
     constructor() {
         this.ethProvider = ethProvider;
         this.ethContract = ethContract;
-        this.tronWeb = tronWeb;
+        this.tronWeb = tronWeb; // Resolver's TRON wallet
+        this.userTronWeb = userTronWeb; // User's TRON wallet
         this.ethWallet = ethWallet; // Resolver's ETH wallet
         this.userEthWallet = userEthWallet; // User's ETH wallet
         this.tronWallet = tronWallet;
@@ -249,6 +250,33 @@ class ContractInteractor {
         }
     }
 
+    async userClaimOnEthereum(preimage) {
+        try {
+            console.log('💰 User claiming on Ethereum with preimage:', preimage);
+
+            const contractWithSigner = ethContract.connect(this.userEthWallet);
+            
+            const tx = await contractWithSigner.claim(preimage);
+            console.log('📝 User Ethereum claim transaction sent:', tx.hash);
+            
+            const receipt = await tx.wait();
+            console.log('✅ User Ethereum claim confirmed:', receipt.hash);
+
+            return {
+                success: true,
+                txHash: tx.hash,
+                receipt
+            };
+
+        } catch (error) {
+            console.error('❌ User Ethereum claim failed:', error);
+            return {
+                success: false,
+                error: error.message
+            };
+        }
+    }
+
     async refundOnEthereum(hashlock) {
         try {
             console.log('🔄 Refunding on Ethereum for hashlock:', hashlock);
@@ -352,6 +380,94 @@ class ContractInteractor {
 
         } catch (error) {
             console.error('❌ TRON lock failed:', error);
+            console.error('❌ Error details:', {
+                message: error.message,
+                code: error.code,
+                argument: error.argument,
+                value: error.value
+            });
+            return {
+                success: false,
+                error: error.message
+            };
+        }
+    }
+
+    async userLockOnTron(hashlock, recipient, token, amount, timelock) {
+        try {
+            console.log('🔒 User locking on TRON:', {
+                hashlock,
+                recipient,
+                token,
+                amount: amount.toString(),
+                timelock
+            });
+
+            // Check user TRON balance before attempting lock
+            const tronBalance = await this.userTronWeb.trx.getBalance(this.userTronWeb.defaultAddress.base58);
+            const tronBalanceTrx = tronBalance / 1000000; // Convert SUN to TRX
+            
+            // Amount is already in SUN format, just use it directly
+            const amountInSun = parseInt(amount);
+            const amountInTrx = amountInSun / 1000000; // Convert SUN to TRX for display
+
+            console.log('💰 User TRON Balance Check:');
+            console.log('   Current Balance:', tronBalanceTrx, 'TRX');
+            console.log('   Required Amount:', amountInTrx, 'TRX');
+            console.log('   Required Amount (SUN):', amountInSun, 'SUN');
+            console.log('   Sufficient Balance:', tronBalance >= amountInSun);
+
+            if (tronBalance < amountInSun) {
+                return {
+                    success: false,
+                    error: `Insufficient TRX balance. Have: ${tronBalanceTrx} TRX, Need: ${amountInTrx} TRX`
+                };
+            }
+
+            // Convert parameters for TRON
+            const tronAmount = amountInSun.toString(); // Use SUN amount
+            const tronTimelock = timelock.toString();
+
+            console.log('🔧 User TRON parameters:', {
+                tronAmount,
+                tronTimelock,
+                recipient
+            });
+
+            // Call TRON contract with user's wallet
+            const result = await this.userTronWeb.contract().at(CONFIG.TRON_NILE.CONTRACT_ADDRESS)
+                .then(contract => {
+                    console.log('📝 Calling TRON contract lock function with user wallet...');
+                    console.log('🔧 Final User TRON parameters:', {
+                        hashlock,
+                        recipient,
+                        token: token,
+                        amount: tronAmount,
+                        timelock: tronTimelock,
+                        callValue: tronAmount
+                    });
+                    return contract.lock(
+                        hashlock,
+                        recipient,
+                        token,
+                        tronAmount,
+                        tronTimelock
+                    ).send({
+                        feeLimit: 1000000000,
+                        callValue: tronAmount // Send TRX with transaction
+                    });
+                });
+
+            console.log('📝 User TRON lock transaction sent:', result);
+            
+            return {
+                success: true,
+                txHash: result,
+                receipt: { transactionId: result }
+            };
+
+        } catch (error) {
+            console.error('❌ User TRON lock failed:', error);
             console.error('❌ Error details:', {
                 message: error.message,
                 code: error.code,
@@ -882,7 +998,7 @@ app.post('/swaps/:hashlock/execute-trx-to-eth', async (req, res) => {
 
         // Step 1: Lock TRX on TRON (user does this)
         console.log('Step 1: User locks TRX on TRON...');
-        const trxLockResult = await contractInteractor.lockOnTron(
+        const trxLockResult = await contractInteractor.userLockOnTron(
             hashlock,
             swap.resolver_tron_address,
             '0x0000000000000000000000000000000000000000', // Native TRX
@@ -943,11 +1059,31 @@ app.post('/swaps/:hashlock/claim', async (req, res) => {
 
         console.log(`💰 Claiming on ${chain} with secret:`, secret);
 
+        // Get swap details to determine which wallet to use
+        const swap = await SwapModel.getByHashlock(hashlock);
+        if (!swap) {
+            return res.status(404).json({ error: 'Swap not found' });
+        }
+
         let result;
         if (chain === 'ethereum') {
-            result = await contractInteractor.claimOnEthereum(secret);
+            // For ETH claims, use user wallet for TRX→ETH, resolver wallet for ETH→TRX
+            if (swap.direction === 'trx→eth') {
+                // TRX→ETH: User claims ETH
+                result = await contractInteractor.userClaimOnEthereum(secret);
+            } else {
+                // ETH→TRX: Resolver claims ETH (this shouldn't happen in normal flow)
+                result = await contractInteractor.claimOnEthereum(secret);
+            }
         } else {
-            result = await contractInteractor.claimOnTron(secret);
+            // For TRON claims, use user wallet for ETH→TRX, resolver wallet for TRX→ETH
+            if (swap.direction === 'eth→trx') {
+                // ETH→TRX: User claims TRX
+                result = await contractInteractor.claimOnTron(secret);
+            } else {
+                // TRX→ETH: Resolver claims TRX (this shouldn't happen in normal flow)
+                result = await contractInteractor.claimOnTron(secret);
+            }
         }
 
         if (result.success) {

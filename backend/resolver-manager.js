@@ -117,11 +117,12 @@ class ResolverManager {
                 );
             } else if (direction === 'trx→eth') {
                 // TRX→ETH: Resolver locks ETH
+                const ethAmount = parseFloat(swapData.user_amount) / 11265.12; // Convert TRX to ETH using user_amount
                 result = await this.resolverClient.lockEth(
                     resolver.endpoint,
                     hashlock,
                     user_eth_address,
-                    amount,
+                    ethAmount.toString(),
                     timelock
                 );
             } else {
