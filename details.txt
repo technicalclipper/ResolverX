@@ -1,0 +1,33 @@
+env contents:
+ETH_SEPOLIA_CONTRACT_ADDRESS=0x11442C4C44f8f0be027d13E21f969d7703Bd8400
+TRON_NILE_CONTRACT_ADDRESS=TQU4VDENJFnnQcPUTXrzDn4E7SoMy98pkZ
+ETH_SEPOLIA_PRIVATE_KEY=92ee430d9c27fb9fd6d0e97355ec18994279012dc1339648cecf1afbf3998f2c
+TRON_NILE_PRIVATE_KEY=b779319f391485f205ea57ed3e77dc0d42af523239d9f65b36cd819e5806e40d
+
+rpc details:
+
+
+Ethereum Sepolia
+ChainID
+11155111(0xaa36a7)	
+
+currency
+ETH	Unknown
+rpc url: https://1rpc.io/sepolia
+
+Tron nile 
+Nile Testnet
+The Nile testnet is used to test new features of TRON, and the code version is generally ahead of the mainnet.
+
+Website：http://nileex.io
+Faucet: http://nileex.io/join/getJoinPage
+Browser: https://nile.tronscan.org
+Status: http://nileex.io/status/getStatusPage
+http API: https://api.nileex.io/
+Trongrid http API: https://nile.trongrid.io/
+grpc API: grpc.nile.trongrid.io:50051
+grpc fullnode API: grpc.nile.trongrid.io:50051
+grpc solidity API: grpc.nile.trongrid.io:50061
+Database backup：http://47.90.243.177
+
+

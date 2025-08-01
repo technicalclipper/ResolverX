@@ -72,7 +72,9 @@ contract AtomicSwap {
     }
 
     function claim(bytes32 _preimage) external {
+        // SIMPLE: Direct hash that matches backend's ethers.keccak256(secret)
         bytes32 hashlock = keccak256(abi.encodePacked(_preimage));
+        
         Swap storage s = swaps[hashlock];
         require(s.state == State.OPEN, "Not open");
         require(block.timestamp < s.timelock, "Expired");
