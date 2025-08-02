@@ -13,6 +13,20 @@ const ResolverModel = require('./database/models/Resolver');
 const ResolverManager = require('./resolver-manager');
 
 const app = express();
+
+// CORS middleware to allow frontend requests
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  
+  if (req.method === 'OPTIONS') {
+    res.sendStatus(200);
+  } else {
+    next();
+  }
+});
+
 app.use(express.json());
 
 // Configuration
@@ -40,6 +54,7 @@ const CONFIG = {
 // const swapEvents = []; // Removed - now using database
 
 // Initialize providers
+// Remove hardcoded user wallets - users will sign with their own wallets
 const ethProvider = new ethers.JsonRpcProvider(CONFIG.ETH_SEPOLIA.RPC_URL);
 const ethContract = new ethers.Contract(
     CONFIG.ETH_SEPOLIA.CONTRACT_ADDRESS,
@@ -53,32 +68,22 @@ const tronWeb = new TronWeb({
     privateKey: CONFIG.TRON_NILE.PRIVATE_KEY
 });
 
-// Initialize TronWeb with user's private key for claiming
-const userTronWeb = new TronWeb({
-    fullHost: CONFIG.TRON_NILE.RPC_URL,
-    privateKey: 'fb3e5ebb71816364003ea9b300b04252d5d48ee48674dfed8a19340daad8315f' // User's TRON private key
-});
-
-// Initialize wallets (Triple Address Setup)
+// Initialize wallets (Only resolver wallets - users will use their own)
 const ethWallet = new ethers.Wallet(CONFIG.ETH_SEPOLIA.PRIVATE_KEY, ethProvider); // Resolver's ETH wallet
-const userEthWallet = new ethers.Wallet('178da07b694e74773bc029ce3fd47d254ea683f117ac5a5ac04ca4e8e5b0953f', ethProvider); // User's ETH wallet
 const tronWallet = tronWeb.defaultAddress.base58;
 
-// Initialize Resolver Manager for HTTP-based swap execution
-const resolverManager = new ResolverManager();
-
-console.log('🔐 Quadruple Address Setup for Cross-Chain Swaps:');
+console.log('🔐 Resolver Wallet Setup for Cross-Chain Swaps:');
 console.log('🔑 Resolver ETH Address (0x...):', ethWallet.address);
-console.log('🔑 User ETH Address (0x...):', userEthWallet.address);
 console.log('🔑 TRON Resolver Address (T...):', tronWallet);
-console.log('🔑 TRON User Address (T...):', userTronWeb.defaultAddress.base58);
 console.log('');
 console.log('📋 Address Usage:');
 console.log('   Resolver ETH Address: Receive ETH from user, claim ETH');
-console.log('   User ETH Address: Lock ETH on Ethereum chain');
 console.log('   TRON Resolver Address: Lock TRX on TRON chain (resolver)');
-console.log('   TRON User Address: Claim TRX on TRON chain (user)');
+console.log('   User wallets: Will be provided by frontend for signing');
 console.log('');
+
+// Initialize Resolver Manager for HTTP-based swap execution
+const resolverManager = new ResolverManager();
 
 // Contract interaction class
 class ContractInteractor {
@@ -86,9 +91,9 @@ class ContractInteractor {
         this.ethProvider = ethProvider;
         this.ethContract = ethContract;
         this.tronWeb = tronWeb; // Resolver's TRON wallet
-        this.userTronWeb = userTronWeb; // User's TRON wallet
+        // this.userTronWeb = userTronWeb; // User's TRON wallet - REMOVED
         this.ethWallet = ethWallet; // Resolver's ETH wallet
-        this.userEthWallet = userEthWallet; // User's ETH wallet
+        // this.userEthWallet = userEthWallet; // User's ETH wallet - REMOVED
         this.tronWallet = tronWallet;
     }
 
@@ -104,8 +109,8 @@ class ContractInteractor {
             const tronBalanceTrx = tronBalance / 1000000; // Convert SUN to TRX
 
             // Get user TRON balance
-            const userTronBalance = await userTronWeb.trx.getBalance(userTronWeb.defaultAddress.base58);
-            const userTronBalanceTrx = userTronBalance / 1000000; // Convert SUN to TRX
+            // const userTronBalance = await userTronWeb.trx.getBalance(userTronWeb.defaultAddress.base58); // REMOVED
+            // const userTronBalanceTrx = userTronBalance / 1000000; // REMOVED
 
             return {
                 ethereum: {
@@ -119,9 +124,9 @@ class ContractInteractor {
                     balanceSun: tronBalance
                 },
                 userTron: {
-                    address: userTronWeb.defaultAddress.base58,
-                    balance: userTronBalanceTrx,
-                    balanceSun: userTronBalance
+                    // address: userTronWeb.defaultAddress.base58, // REMOVED
+                    // balance: userTronBalanceTrx, // REMOVED
+                    // balanceSun: userTronBalance // REMOVED
                 }
             };
         } catch (error) {
@@ -190,10 +195,10 @@ class ContractInteractor {
             });
 
             // Create contract instance with user's signer
-            const contractWithSigner = ethContract.connect(this.userEthWallet);
+            // const contractWithSigner = ethContract.connect(this.userEthWallet); // REMOVED
 
             // Prepare transaction
-            const tx = await contractWithSigner.lock(
+            const tx = await ethContract.lock( // Use ethContract directly as it's the resolver's wallet
                 hashlock,
                 recipient,
                 token,
@@ -254,7 +259,7 @@ class ContractInteractor {
         try {
             console.log('💰 User claiming on Ethereum with preimage:', preimage);
 
-            const contractWithSigner = ethContract.connect(this.userEthWallet);
+            const contractWithSigner = ethContract.connect(this.ethWallet); // Use ethContract directly
             
             const tx = await contractWithSigner.claim(preimage);
             console.log('📝 User Ethereum claim transaction sent:', tx.hash);
@@ -404,7 +409,8 @@ class ContractInteractor {
             });
 
             // Check user TRON balance before attempting lock
-            const tronBalance = await this.userTronWeb.trx.getBalance(this.userTronWeb.defaultAddress.base58);
+            // const tronBalance = await this.userTronWeb.trx.getBalance(this.userTronWeb.defaultAddress.base58); // REMOVED
+            const tronBalance = await this.tronWeb.trx.getBalance(this.tronWeb.defaultAddress.base58); // Use tronWeb directly
             const tronBalanceTrx = tronBalance / 1000000; // Convert SUN to TRX
             
             // Amount is already in SUN format, just use it directly
@@ -435,7 +441,7 @@ class ContractInteractor {
             });
 
             // Call TRON contract with user's wallet
-            const result = await this.userTronWeb.contract().at(CONFIG.TRON_NILE.CONTRACT_ADDRESS)
+            const result = await this.tronWeb.contract().at(CONFIG.TRON_NILE.CONTRACT_ADDRESS)
                 .then(contract => {
                     console.log('📝 Calling TRON contract lock function with user wallet...');
                     console.log('🔧 Final User TRON parameters:', {
@@ -485,7 +491,7 @@ class ContractInteractor {
         try {
             console.log('💰 Claiming on TRON with preimage:', preimage);
 
-            const result = await userTronWeb.contract().at(CONFIG.TRON_NILE.CONTRACT_ADDRESS)
+            const result = await this.tronWeb.contract().at(CONFIG.TRON_NILE.CONTRACT_ADDRESS)
                 .then(contract => {
                     return contract.claim(preimage).send({
                         feeLimit: 1000000000
@@ -502,6 +508,34 @@ class ContractInteractor {
 
         } catch (error) {
             console.error('❌ TRON claim failed:', error);
+            return {
+                success: false,
+                error: error.message
+            };
+        }
+    }
+
+    async userClaimOnTron(preimage) {
+        try {
+            console.log('💰 User claiming on TRON with preimage:', preimage);
+
+            const result = await this.tronWeb.contract().at(CONFIG.TRON_NILE.CONTRACT_ADDRESS)
+                .then(contract => {
+                    return contract.claim(preimage).send({
+                        feeLimit: 1000000000
+                    });
+                });
+
+            console.log('📝 User TRON claim transaction sent:', result);
+            
+            return {
+                success: true,
+                txHash: result,
+                receipt: { transactionId: result }
+            };
+
+        } catch (error) {
+            console.error('❌ User TRON claim failed:', error);
             return {
                 success: false,
                 error: error.message
@@ -554,7 +588,7 @@ class ContractInteractor {
                 };
             } else {
                 // TRON implementation
-                const result = await tronWeb.contract().at(CONFIG.TRON_NILE.CONTRACT_ADDRESS)
+                const result = await this.tronWeb.contract().at(CONFIG.TRON_NILE.CONTRACT_ADDRESS)
                     .then(contract => {
                         return contract.swaps(hashlock).call();
                     });
@@ -668,43 +702,43 @@ class SwapManager {
         });
 
         // Store event
-        swapEvents.push({
-            id: swapEvents.length + 1,
-            chain,
-            eventType: 'HTLCLocked',
-            hashlock,
-            sender,
-            recipient,
-            token,
-            amount: amount.toString(),
-            timelock: timelock.toString(),
-            timestamp: new Date()
-        });
+        // swapEvents.push({ // REMOVED
+        //     id: swapEvents.length + 1,
+        //     chain,
+        //     eventType: 'HTLCLocked',
+        //     hashlock,
+        //     sender,
+        //     recipient,
+        //     token,
+        //     amount: amount.toString(),
+        //     timelock: timelock.toString(),
+        //     timestamp: new Date()
+        // });
 
         // Update swap status if exists
-        if (swaps.has(hashlock)) {
-            const swap = swaps.get(hashlock);
-            if (chain === 'ethereum') {
-                swap.eth_lock_tx = 'pending'; // In real implementation, get from transaction
-                swap.status = 'locked';
-            } else {
-                swap.tron_lock_tx = 'pending';
-            }
-            swaps.set(hashlock, swap);
-        }
+        // if (swaps.has(hashlock)) { // REMOVED
+        //     const swap = swaps.get(hashlock);
+        //     if (chain === 'ethereum') {
+        //         swap.eth_lock_tx = 'pending'; // In real implementation, get from transaction
+        //         swap.status = 'locked';
+        //     } else {
+        //         swap.tron_lock_tx = 'pending';
+        //     }
+        //     swaps.set(hashlock, swap);
+        // }
     }
 
     handleHTLCClaimed(chain, hashlock, preimage) {
         console.log(`${chain.toUpperCase()} HTLC Claimed:`, { hashlock, preimage });
 
-        swapEvents.push({
-            id: swapEvents.length + 1,
-            chain,
-            eventType: 'HTLCClaimed',
-            hashlock,
-            preimage,
-            timestamp: new Date()
-        });
+        // swapEvents.push({ // REMOVED
+        //     id: swapEvents.length + 1,
+        //     chain,
+        //     eventType: 'HTLCClaimed',
+        //     hashlock,
+        //     preimage,
+        //     timestamp: new Date()
+        // });
 
         // Extract secret and trigger cross-chain claim
         this.handleSecretRevealed(chain, hashlock, preimage);
@@ -713,22 +747,22 @@ class SwapManager {
     handleHTLCRefunded(chain, hashlock) {
         console.log(`${chain.toUpperCase()} HTLC Refunded:`, { hashlock });
 
-        swapEvents.push({
-            id: swapEvents.length + 1,
-            chain,
-            eventType: 'HTLCRefunded',
-            hashlock,
-            timestamp: new Date()
-        });
+        // swapEvents.push({ // REMOVED
+        //     id: swapEvents.length + 1,
+        //     chain,
+        //     eventType: 'HTLCRefunded',
+        //     hashlock,
+        //     timestamp: new Date()
+        // });
     }
 
     handleSecretRevealed(chain, hashlock, preimage) {
-        const swap = swaps.get(hashlock);
-        if (!swap) return;
+        // const swap = swaps.get(hashlock); // REMOVED
+        // if (!swap) return;
 
         // Store the revealed secret
-        swap.secret = preimage;
-        swaps.set(hashlock, swap);
+        // swap.secret = preimage; // REMOVED
+        // swaps.set(hashlock, swap);
 
         // Trigger claim on the other chain
         if (chain === 'ethereum') {
@@ -742,7 +776,7 @@ class SwapManager {
 
     async triggerEthClaim(hashlock, preimage) {
         console.log('Triggering ETH claim with secret:', preimage);
-        const result = await contractInteractor.claimOnEthereum(preimage);
+        const result = await contractInteractor.userClaimOnEthereum(preimage);
         if (result.success) {
             console.log('✅ ETH claim successful:', result.txHash);
         } else {
@@ -752,7 +786,7 @@ class SwapManager {
 
     async triggerTronClaim(hashlock, preimage) {
         console.log('Triggering TRON claim with secret:', preimage);
-        const result = await contractInteractor.claimOnTron(preimage);
+        const result = await contractInteractor.userClaimOnTron(preimage);
         if (result.success) {
             console.log('✅ TRON claim successful:', result.txHash);
         } else {
@@ -824,7 +858,10 @@ app.get('/resolvers', async (req, res) => {
 app.get('/resolvers/:direction', async (req, res) => {
     try {
         const { direction } = req.params;
-        const resolvers = await ResolverModel.getByDirection(direction);
+        // Decode URL-encoded direction parameter
+        const decodedDirection = decodeURIComponent(direction);
+        console.log(`🔍 Fetching resolvers for direction: ${decodedDirection}`);
+        const resolvers = await ResolverModel.getByDirection(decodedDirection);
         res.json(resolvers);
     } catch (error) {
         console.error('Error fetching resolvers by direction:', error);
@@ -946,12 +983,103 @@ app.post('/swaps', async (req, res) => {
     }
 });
 
-// Execute complete HTLC swap using resolver bot (ETH → TRX)
-app.post('/swaps/:hashlock/execute-eth-to-trx', async (req, res) => {
+// Get ETH lock transaction parameters for frontend signing (ETH → TRX)
+app.get('/swaps/:hashlock/eth-lock-params', async (req, res) => {
     try {
         const { hashlock } = req.params;
 
-        console.log('🚀 Executing ETH → TRX swap with resolver bot for hashlock:', hashlock);
+        console.log('🔍 Getting ETH lock parameters for hashlock:', hashlock);
+
+        // Get swap details from database
+        const swap = await SwapModel.getByHashlock(hashlock);
+        if (!swap) {
+            return res.status(404).json({ error: 'Swap not found' });
+        }
+
+        console.log('🔍 Swap data from database:', {
+            hashlock: swap.hashlock,
+            direction: swap.direction,
+            resolver_id: swap.resolver_id,
+            resolver_eth_address: swap.resolver_eth_address,
+            user_amount: swap.user_amount
+        });
+
+        // Get resolver details
+        const resolver = await ResolverModel.getById(swap.resolver_id);
+        if (!resolver) {
+            return res.status(404).json({ error: 'Resolver not found' });
+        }
+
+        console.log('🔍 Resolver data from database:', {
+            id: resolver.id,
+            name: resolver.name,
+            eth_address: resolver.eth_address,
+            tron_address: resolver.tron_address
+        });
+
+        const timelock = calculateTimelock();
+        const ethAmount = ethers.parseEther(swap.user_amount);
+
+        // Return transaction parameters for frontend to sign
+        // Encode the function data
+        const functionData = ethContract.interface.encodeFunctionData('lock', [
+            hashlock,
+            swap.resolver_eth_address,
+            '0x0000000000000000000000000000000000000000', // Native ETH
+            ethAmount,
+            timelock
+        ]);
+        
+        console.log('🔍 Function encoding details:', {
+            hashlock,
+            resolverEthAddress: swap.resolver_eth_address,
+            ethAmount: ethAmount.toString(),
+            timelock,
+            functionData
+        });
+        
+        const transactionParams = {
+            to: CONFIG.ETH_SEPOLIA.CONTRACT_ADDRESS,
+            data: functionData,
+            value: ethAmount.toString(),
+            chainId: CONFIG.ETH_SEPOLIA.CHAIN_ID
+        };
+        
+        console.log('🔍 Backend sending ETH lock params:', {
+            to: transactionParams.to,
+            toType: typeof transactionParams.to,
+            toLength: transactionParams.to?.length,
+            contractAddress: CONFIG.ETH_SEPOLIA.CONTRACT_ADDRESS
+        });
+        
+        res.json({
+            success: true,
+            transactionParams: transactionParams,
+            swap: {
+                hashlock,
+                direction: swap.direction,
+                userAmount: swap.user_amount,
+                resolverAddress: swap.resolver_eth_address,
+                timelock
+            },
+            resolver: {
+                name: resolver.name,
+                endpoint: resolver.endpoint
+            }
+        });
+
+    } catch (error) {
+        console.error('Error getting ETH lock parameters:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Get TRX lock transaction parameters for frontend signing (TRX → ETH)
+app.get('/swaps/:hashlock/trx-lock-params', async (req, res) => {
+    try {
+        const { hashlock } = req.params;
+
+        console.log('🔍 Getting TRX lock parameters for hashlock:', hashlock);
 
         // Get swap details from database
         const swap = await SwapModel.getByHashlock(hashlock);
@@ -965,29 +1093,67 @@ app.post('/swaps/:hashlock/execute-eth-to-trx', async (req, res) => {
             return res.status(404).json({ error: 'Resolver not found' });
         }
 
-        // Step 1: Lock ETH on Ethereum (user does this)
-        console.log('Step 1: User locks ETH on Ethereum...');
         const timelock = calculateTimelock();
-        const ethAmount = ethers.parseEther(swap.user_amount);
-        
-        const ethLockResult = await contractInteractor.userLockOnEthereum(
-            hashlock,
-            swap.resolver_eth_address,
-            '0x0000000000000000000000000000000000000000', // Native ETH
-            ethAmount,
-            timelock
-        );
+        const trxAmountInTrx = parseFloat(swap.user_amount);
+        const trxAmountInSun = Math.floor(trxAmountInTrx * 1000000);
 
-        if (!ethLockResult.success) {
-            return res.status(400).json({ error: 'ETH lock failed', details: ethLockResult.error });
+        // Return transaction parameters for frontend to sign
+        res.json({
+            success: true,
+            transactionParams: {
+                contractAddress: CONFIG.TRON_NILE.CONTRACT_ADDRESS,
+                functionName: 'lock',
+                parameters: [
+                    hashlock,
+                    swap.resolver_tron_address,
+                    '0x0000000000000000000000000000000000000000', // Native TRX
+                    trxAmountInSun.toString(),
+                    timelock.toString()
+                ],
+                callValue: trxAmountInSun,
+                feeLimit: 1000000000
+            },
+            swap: {
+                hashlock,
+                direction: swap.direction,
+                userAmount: swap.user_amount,
+                resolverAddress: swap.resolver_tron_address,
+                timelock
+            },
+            resolver: {
+                name: resolver.name,
+                endpoint: resolver.endpoint
+            }
+        });
+
+    } catch (error) {
+        console.error('Error getting TRX lock parameters:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Submit user-signed ETH lock transaction (ETH → TRX)
+app.post('/swaps/:hashlock/submit-eth-lock', async (req, res) => {
+    try {
+        const { hashlock } = req.params;
+        const { txHash } = req.body;
+
+        if (!txHash) {
+            return res.status(400).json({ error: 'Missing transaction hash' });
         }
 
+        console.log('📝 Submitting user ETH lock transaction:', txHash);
+
         // Update swap status in database
-        await SwapModel.updateTransaction(hashlock, 'eth_lock_tx', ethLockResult.txHash);
+        await SwapModel.updateTransaction(hashlock, 'eth_lock_tx', txHash);
         await SwapModel.updateStatus(hashlock, 'eth_locked');
 
-        // Step 2: Resolver locks TRX on TRON via HTTP
-        console.log('Step 2: Resolver locks TRX on TRON via HTTP...');
+        // Get swap and resolver details
+        const swap = await SwapModel.getByHashlock(hashlock);
+        const resolver = await ResolverModel.getById(swap.resolver_id);
+
+        // Step 2: Trigger resolver to lock TRX on TRON
+        console.log('🔒 Triggering resolver TRX lock...');
         const resolverResult = await resolverManager.executeSwapWithResolver(swap, resolver);
 
         if (!resolverResult.success) {
@@ -1003,8 +1169,8 @@ app.post('/swaps/:hashlock/execute-eth-to-trx', async (req, res) => {
 
         res.json({
             success: true,
-            message: 'HTLC swap executed successfully with resolver bot',
-            ethLockTx: ethLockResult.txHash,
+            message: 'ETH lock submitted and resolver TRX lock triggered',
+            ethLockTx: txHash,
             trxLockTx: resolverResult.txHash,
             resolver: {
                 name: resolver.name,
@@ -1014,7 +1180,60 @@ app.post('/swaps/:hashlock/execute-eth-to-trx', async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Error executing swap:', error);
+        console.error('Error submitting ETH lock:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Submit user-signed TRX lock transaction (TRX → ETH)
+app.post('/swaps/:hashlock/submit-trx-lock', async (req, res) => {
+    try {
+        const { hashlock } = req.params;
+        const { txHash } = req.body;
+
+        if (!txHash) {
+            return res.status(400).json({ error: 'Missing transaction hash' });
+        }
+
+        console.log('📝 Submitting user TRX lock transaction:', txHash);
+
+        // Update swap status in database
+        await SwapModel.updateTransaction(hashlock, 'tron_lock_tx', txHash);
+        await SwapModel.updateStatus(hashlock, 'trx_locked');
+
+        // Get swap and resolver details
+        const swap = await SwapModel.getByHashlock(hashlock);
+        const resolver = await ResolverModel.getById(swap.resolver_id);
+
+        // Step 2: Trigger resolver to lock ETH on Ethereum
+        console.log('🔒 Triggering resolver ETH lock...');
+        const resolverResult = await resolverManager.executeSwapWithResolver(swap, resolver);
+
+        if (!resolverResult.success) {
+            return res.status(400).json({ 
+                error: 'Resolver ETH lock failed', 
+                details: resolverResult.error 
+            });
+        }
+
+        // Update swap status in database
+        await SwapModel.updateTransaction(hashlock, 'eth_lock_tx', resolverResult.txHash);
+        await SwapModel.updateStatus(hashlock, 'both_locked');
+
+        res.json({
+            success: true,
+            message: 'TRX lock submitted and resolver ETH lock triggered',
+            trxLockTx: txHash,
+            ethLockTx: resolverResult.txHash,
+            resolver: {
+                name: resolver.name,
+                endpoint: resolver.endpoint
+            },
+            swap: swap
+        });
+
+    } catch (error) {
+        console.error('Error submitting TRX lock:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
@@ -1125,7 +1344,7 @@ app.post('/swaps/:hashlock/claim', async (req, res) => {
             // For TRON claims, use user wallet for ETH→TRX, resolver wallet for TRX→ETH
             if (swap.direction === 'eth→trx') {
                 // ETH→TRX: User claims TRX
-                result = await contractInteractor.claimOnTron(secret);
+                result = await contractInteractor.userClaimOnTron(secret);
             } else {
                 // TRX→ETH: Resolver claims TRX (this shouldn't happen in normal flow)
                 result = await contractInteractor.claimOnTron(secret);
@@ -1268,8 +1487,111 @@ app.post('/swaps/:hashlock/trigger-resolver-claim', async (req, res) => {
             });
         }
 
+            } catch (error) {
+            console.error('Error triggering resolver claim:', error);
+            res.status(500).json({ error: 'Internal server error' });
+        }
+    });
+
+// Get claim transaction parameters for frontend signing
+app.post('/swaps/:hashlock/claim-params', async (req, res) => {
+    try {
+        const { hashlock } = req.params;
+        const { secret, chain = 'ethereum' } = req.body;
+
+        if (!secret) {
+            return res.status(400).json({ error: 'Missing secret' });
+        }
+
+        console.log(`💰 Getting claim parameters for ${chain} with secret:`, secret);
+
+        // Get swap details
+        const swap = await SwapModel.getByHashlock(hashlock);
+        if (!swap) {
+            return res.status(404).json({ error: 'Swap not found' });
+        }
+
+        let transactionParams;
+        if (chain === 'ethereum') {
+            // For ETH claims, use user wallet for TRX→ETH
+            if (swap.direction === 'trx→eth') {
+                // TRX→ETH: User claims ETH
+                const functionData = ethContract.interface.encodeFunctionData('claim', [secret]);
+                transactionParams = {
+                    to: CONFIG.ETH_SEPOLIA.CONTRACT_ADDRESS,
+                    data: functionData,
+                    value: '0x0',
+                    chainId: CONFIG.ETH_SEPOLIA.CHAIN_ID
+                };
+            } else {
+                return res.status(400).json({ error: 'Invalid claim direction for Ethereum' });
+            }
+        } else {
+            // For TRON claims, use user wallet for ETH→TRX
+            if (swap.direction === 'eth→trx') {
+                // ETH→TRX: User claims TRX
+                transactionParams = {
+                    contractAddress: CONFIG.TRON_NILE.CONTRACT_ADDRESS,
+                    functionName: 'claim',
+                    parameters: [secret],
+                    callValue: 0,
+                    feeLimit: 1000000000
+                };
+            } else {
+                return res.status(400).json({ error: 'Invalid claim direction for TRON' });
+            }
+        }
+
+        res.json({
+            success: true,
+            transactionParams: transactionParams,
+            swap: swap
+        });
+
     } catch (error) {
-        console.error('Error triggering resolver claim:', error);
+        console.error('Error getting claim parameters:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Submit user-signed claim transaction
+app.post('/swaps/:hashlock/submit-claim', async (req, res) => {
+    try {
+        const { hashlock } = req.params;
+        const { chain, txHash } = req.body;
+
+        if (!txHash) {
+            return res.status(400).json({ error: 'Missing transaction hash' });
+        }
+
+        console.log(`💰 Submitting ${chain} claim transaction:`, txHash);
+
+        // Get swap details
+        const swap = await SwapModel.getByHashlock(hashlock);
+        if (!swap) {
+            return res.status(404).json({ error: 'Swap not found' });
+        }
+
+        // Update database with claim transaction hash
+        try {
+            if (chain === 'ethereum') {
+                await SwapModel.updateTransaction(hashlock, 'eth_claim_tx', txHash);
+            } else {
+                await SwapModel.updateTransaction(hashlock, 'tron_claim_tx', txHash);
+            }
+            await SwapModel.updateStatus(hashlock, 'claimed');
+            console.log('✅ Database updated successfully');
+        } catch (dbError) {
+            console.error('❌ Database update failed:', dbError);
+        }
+
+        res.json({
+            success: true,
+            message: `${chain} claim submitted successfully`
+        });
+
+    } catch (error) {
+        console.error('Error submitting claim:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
