@@ -52,11 +52,9 @@ async function testTRXToETHSwapFlow() {
         console.log('   Message:', userClaimResponse.data.message);
         console.log('');
 
-        // Step 4: Resolver claims TRX on TRON chain
+        // Step 4: Resolver claims TRX on TRON chain (secret will be extracted from user's ETH claim transaction)
         console.log('💰 Step 4: Resolver claiming TRX on TRON chain...');
-        const resolverClaimResponse = await axios.post(`${BASE_URL}/swaps/${swap.hashlock}/trigger-resolver-claim`, {
-            secret: secret
-        });
+        const resolverClaimResponse = await axios.post(`${BASE_URL}/swaps/${swap.hashlock}/trigger-resolver-claim`);
         
         console.log('✅ Resolver TRX claim completed:');
         console.log('   TRX Claim TX (Resolver):', resolverClaimResponse.data.txHash);

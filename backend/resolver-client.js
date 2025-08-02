@@ -2,14 +2,14 @@ const axios = require('axios');
 
 class ResolverClient {
     constructor() {
-        this.timeout = 30000; // 30 seconds timeout
+        this.timeout = 0; // No timeout - let blockchain transactions complete
     }
 
     // Health check resolver bot
     async checkHealth(resolverEndpoint) {
         try {
             const response = await axios.get(`${resolverEndpoint}/status`, {
-                timeout: this.timeout
+                timeout: this.timeout || undefined
             });
             return {
                 success: true,
@@ -28,7 +28,7 @@ class ResolverClient {
     async getResolverInfo(resolverEndpoint) {
         try {
             const response = await axios.get(`${resolverEndpoint}/info`, {
-                timeout: this.timeout
+                timeout: this.timeout || undefined
             });
             return {
                 success: true,
@@ -54,7 +54,7 @@ class ResolverClient {
                 amount,
                 timelock
             }, {
-                timeout: this.timeout
+                timeout: this.timeout || undefined
             });
 
             console.log('✅ Resolver lock-tron response:', response.data);
@@ -76,7 +76,7 @@ class ResolverClient {
             const response = await axios.post(`${resolverEndpoint}/claim-eth`, {
                 preimage
             }, {
-                timeout: this.timeout
+                timeout: this.timeout || undefined
             });
 
             console.log('✅ Resolver claim-eth response:', response.data);
@@ -101,7 +101,7 @@ class ResolverClient {
                 amount,
                 timelock
             }, {
-                timeout: this.timeout
+                timeout: this.timeout || undefined
             });
 
             console.log('✅ Resolver lock-eth response:', response.data);
@@ -123,7 +123,7 @@ class ResolverClient {
             const response = await axios.post(`${resolverEndpoint}/claim-tron`, {
                 preimage
             }, {
-                timeout: this.timeout
+                timeout: this.timeout || undefined
             });
 
             console.log('✅ Resolver claim-tron response:', response.data);

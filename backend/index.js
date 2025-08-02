@@ -598,6 +598,52 @@ function calculateTimelock() {
     return Math.floor(Date.now() / 1000) + CONFIG.TIMELOCK_DURATION;
 }
 
+// Function to extract secret from transaction receipt
+async function extractSecretFromTransaction(txHash, chain = 'ethereum') {
+    try {
+        console.log(`🔍 Extracting secret from ${chain} transaction: ${txHash}`);
+        
+        if (chain === 'ethereum') {
+            // Get transaction receipt from Ethereum
+            const receipt = await ethProvider.getTransactionReceipt(txHash);
+            if (!receipt) {
+                throw new Error('Transaction receipt not found');
+            }
+            
+            // Find HTLCClaimed event in logs
+            const contractInterface = new ethers.Interface(eth_sepolia_abi);
+            for (const log of receipt.logs) {
+                try {
+                    const parsedLog = contractInterface.parseLog(log);
+                    if (parsedLog && parsedLog.name === 'HTLCClaimed') {
+                        const preimage = parsedLog.args.preimage;
+                        console.log(`✅ Secret extracted from Ethereum transaction: ${preimage}`);
+                        return preimage;
+                    }
+                } catch (parseError) {
+                    // Skip logs that can't be parsed
+                    continue;
+                }
+            }
+            throw new Error('HTLCClaimed event not found in transaction logs');
+        } else {
+            // For TRON, we need to get transaction info
+            const txInfo = await tronWeb.trx.getTransactionInfo(txHash);
+            if (!txInfo) {
+                throw new Error('TRON transaction info not found');
+            }
+            
+            // For TRON, we need to decode the transaction data
+            // This is more complex and depends on the specific TRON implementation
+            // For now, we'll return an error suggesting manual extraction
+            throw new Error('TRON secret extraction not yet implemented. Please extract manually from transaction logs.');
+        }
+    } catch (error) {
+        console.error(`❌ Error extracting secret from ${chain} transaction:`, error.message);
+        throw error;
+    }
+}
+
 // Swap management
 class SwapManager {
     constructor() {
@@ -1130,11 +1176,7 @@ app.post('/swaps/:hashlock/claim', async (req, res) => {
 app.post('/swaps/:hashlock/trigger-resolver-claim', async (req, res) => {
     try {
         const { hashlock } = req.params;
-        const { secret } = req.body;
-
-        if (!secret) {
-            return res.status(400).json({ error: 'Missing secret' });
-        }
+        const { secret } = req.body; // Optional - will extract from transaction if not provided
 
         console.log(`💰 Triggering resolver claim for hashlock:`, hashlock);
 
@@ -1150,8 +1192,50 @@ app.post('/swaps/:hashlock/trigger-resolver-claim', async (req, res) => {
             return res.status(404).json({ error: 'Resolver not found' });
         }
 
+        // Validate that user claim has been completed before resolver can claim
+        if (swap.direction === 'trx→eth') {
+            // For TRX→ETH: Check that user has claimed ETH
+            if (!swap.eth_claim_tx) {
+                return res.status(400).json({ 
+                    error: 'User ETH claim not completed yet. Please wait for user to claim ETH on Ethereum first.' 
+                });
+            }
+            console.log('✅ User ETH claim confirmed:', swap.eth_claim_tx);
+        } else if (swap.direction === 'eth→trx') {
+            // For ETH→TRX: Check that user has claimed TRX
+            if (!swap.tron_claim_tx) {
+                return res.status(400).json({ 
+                    error: 'User TRX claim not completed yet. Please wait for user to claim TRX on TRON first.' 
+                });
+            }
+            console.log('✅ User TRX claim confirmed:', swap.tron_claim_tx);
+        }
+
+        // Extract secret from user's claim transaction if not provided
+        let secretToUse = secret;
+        if (!secretToUse) {
+            try {
+                if (swap.direction === 'trx→eth') {
+                    // For TRX→ETH: Extract from user's ETH claim
+                    secretToUse = await extractSecretFromTransaction(swap.eth_claim_tx, 'ethereum');
+                } else if (swap.direction === 'eth→trx') {
+                    // For ETH→TRX: Extract from user's TRX claim
+                    secretToUse = await extractSecretFromTransaction(swap.tron_claim_tx, 'tron');
+                }
+            } catch (extractError) {
+                return res.status(400).json({ 
+                    error: `Failed to extract secret from transaction: ${extractError.message}. Please provide secret manually.` 
+                });
+            }
+        }
+
+        // Log the secret being used for debugging
+        console.log(`🔑 Using secret for resolver claim: ${secretToUse}`);
+        console.log(`🔑 Secret length: ${secretToUse.length} characters`);
+        console.log(`🔑 Secret format: ${secretToUse.startsWith('0x') ? 'Valid hex' : 'Invalid format'}`);
+        
         // Trigger resolver claim via HTTP
-        const result = await resolverManager.triggerResolverClaim(swap, resolver, secret);
+        const result = await resolverManager.triggerResolverClaim(swap, resolver, secretToUse);
 
         if (result.success) {
             console.log('✅ Resolver claim successful:', result.txHash);
@@ -1287,6 +1371,35 @@ app.get('/balances', async (req, res) => {
     } catch (error) {
         console.error('Error getting balances:', error);
         res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Debug endpoint to extract secret from transaction
+app.post('/debug/extract-secret', async (req, res) => {
+    try {
+        const { txHash, chain = 'ethereum' } = req.body;
+        
+        if (!txHash) {
+            return res.status(400).json({ error: 'Missing transaction hash' });
+        }
+
+        console.log(`🔍 Debug: Extracting secret from ${chain} transaction: ${txHash}`);
+        
+        const extractedSecret = await extractSecretFromTransaction(txHash, chain);
+        
+        res.json({
+            success: true,
+            txHash,
+            chain,
+            extractedSecret,
+            message: 'Secret extracted successfully'
+        });
+    } catch (error) {
+        console.error('❌ Debug secret extraction failed:', error.message);
+        res.status(400).json({
+            success: false,
+            error: error.message
+        });
     }
 });
 
