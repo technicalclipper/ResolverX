@@ -63,13 +63,18 @@ export default function SwapInterface() {
     const exchangeRate = formData.direction === 'eth→trx' ? 11265.12 : 0.0000887;
     const estimatedReceive = amount * exchangeRate;
 
+    // Format estimated receive with appropriate precision
+    const estimatedReceiveFormatted = estimatedReceive >= 1
+      ? estimatedReceive.toFixed(2)
+      : estimatedReceive.toFixed(6);
+
     setEstimate({
       userAmount: formData.amount,
       userToken: formData.direction === 'eth→trx' ? 'ETH' : 'TRX',
       resolverFee: fee.toFixed(6),
       totalAmount: total.toFixed(6),
       exchangeRate,
-      estimatedReceive: estimatedReceive.toFixed(2)
+      estimatedReceive: estimatedReceiveFormatted
     });
   };
 
