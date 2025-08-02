@@ -160,16 +160,16 @@ export default function SwapStatus({ swap }: SwapStatusProps) {
                       </p>
                     </div>
                     <div className="text-right">
-                      {swapState.eth_lock_tx ? (
+                      {swap.direction === 'eth→trx' && swapState.eth_lock_tx ? (
                         <div className="text-green-600 text-sm">✅ Completed</div>
-                      ) : swapState.tron_lock_tx ? (
+                      ) : swap.direction === 'trx→eth' && swapState.tron_lock_tx ? (
                         <div className="text-green-600 text-sm">✅ Completed</div>
                       ) : (
                         <div className="text-yellow-600 text-sm">⏳ Pending</div>
                       )}
                     </div>
                   </div>
-                  {swapState.eth_lock_tx && (
+                  {swap.direction === 'eth→trx' && swapState.eth_lock_tx && (
                     <div className="mt-2">
                       <a 
                         href={getTransactionExplorerUrl(swapState.eth_lock_tx, 'ethereum')}
@@ -181,7 +181,7 @@ export default function SwapStatus({ swap }: SwapStatusProps) {
                       </a>
                     </div>
                   )}
-                  {swapState.tron_lock_tx && !swapState.eth_lock_tx && (
+                  {swap.direction === 'trx→eth' && swapState.tron_lock_tx && (
                     <div className="mt-2">
                       <a 
                         href={getTransactionExplorerUrl(swapState.tron_lock_tx, 'tron')}

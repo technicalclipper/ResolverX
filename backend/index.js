@@ -1420,6 +1420,37 @@ app.post('/swaps/:hashlock/trigger-resolver-claim', async (req, res) => {
                 });
             }
             console.log('✅ User ETH claim confirmed:', swap.eth_claim_tx);
+            
+            // Wait for transaction confirmation
+            console.log('⏳ Waiting for user ETH claim transaction confirmation...');
+            let confirmed = false;
+            let attempts = 0;
+            const maxAttempts = 10;
+            
+            while (!confirmed && attempts < maxAttempts) {
+                try {
+                    const receipt = await ethProvider.getTransactionReceipt(swap.eth_claim_tx);
+                    if (receipt && receipt.confirmations > 0) {
+                        confirmed = true;
+                        console.log('✅ User ETH claim transaction confirmed with', receipt.confirmations, 'confirmations');
+                    } else {
+                        console.log(`⏳ Waiting for confirmation... (attempt ${attempts + 1}/${maxAttempts})`);
+                        await new Promise(resolve => setTimeout(resolve, 3000)); // Wait 3 seconds
+                        attempts++;
+                    }
+                } catch (error) {
+                    console.log(`⏳ Error checking confirmation: ${error.message}, retrying...`);
+                    await new Promise(resolve => setTimeout(resolve, 3000));
+                    attempts++;
+                }
+            }
+            
+            if (!confirmed) {
+                return res.status(400).json({ 
+                    error: 'User ETH claim transaction not confirmed yet. Please wait and try again.' 
+                });
+            }
+            
         } else if (swap.direction === 'eth→trx') {
             // For ETH→TRX: Check that user has claimed TRX
             if (!swap.tron_claim_tx) {
@@ -1428,6 +1459,10 @@ app.post('/swaps/:hashlock/trigger-resolver-claim', async (req, res) => {
                 });
             }
             console.log('✅ User TRX claim confirmed:', swap.tron_claim_tx);
+            
+            // For TRON, we'll assume the transaction is confirmed if it exists
+            // TRON transactions are typically confirmed very quickly
+            console.log('✅ Assuming TRON transaction is confirmed (TRON confirms quickly)');
         }
 
         // Extract secret from user's claim transaction if not provided
@@ -1453,12 +1488,38 @@ app.post('/swaps/:hashlock/trigger-resolver-claim', async (req, res) => {
         console.log(`🔑 Secret length: ${secretToUse.length} characters`);
         console.log(`🔑 Secret format: ${secretToUse.startsWith('0x') ? 'Valid hex' : 'Invalid format'}`);
         
-        // Trigger resolver claim via HTTP
-        const result = await resolverManager.triggerResolverClaim(swap, resolver, secretToUse);
+        // Trigger resolver claim via HTTP with retry mechanism
+        let result;
+        let attempts = 0;
+        const maxAttempts = 3;
+        
+        while (attempts < maxAttempts) {
+            try {
+                console.log(`🔄 Attempting resolver claim (attempt ${attempts + 1}/${maxAttempts})...`);
+                result = await resolverManager.triggerResolverClaim(swap, resolver, secretToUse);
+                
+                if (result.success) {
+                    console.log('✅ Resolver claim successful:', result.txHash);
+                    break;
+                } else {
+                    console.log(`❌ Resolver claim failed (attempt ${attempts + 1}):`, result.error);
+                    attempts++;
+                    if (attempts < maxAttempts) {
+                        console.log('⏳ Waiting 5 seconds before retry...');
+                        await new Promise(resolve => setTimeout(resolve, 5000));
+                    }
+                }
+            } catch (error) {
+                console.log(`❌ Resolver claim error (attempt ${attempts + 1}):`, error.message);
+                attempts++;
+                if (attempts < maxAttempts) {
+                    console.log('⏳ Waiting 5 seconds before retry...');
+                    await new Promise(resolve => setTimeout(resolve, 5000));
+                }
+            }
+        }
 
-        if (result.success) {
-            console.log('✅ Resolver claim successful:', result.txHash);
-            
+        if (result && result.success) {
             // Update database with resolver claim transaction hash
             if (swap.direction === 'eth→trx') {
                 // ETH→TRX: Resolver claims ETH
@@ -1483,7 +1544,7 @@ app.post('/swaps/:hashlock/trigger-resolver-claim', async (req, res) => {
         } else {
             res.status(400).json({
                 success: false,
-                error: result.error
+                error: result ? result.error : 'Resolver claim failed after all retry attempts'
             });
         }
 
