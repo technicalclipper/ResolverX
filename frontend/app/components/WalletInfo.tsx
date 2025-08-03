@@ -33,14 +33,14 @@ export default function WalletInfo() {
   };
 
   return (
-    <div className="max-w-md mx-auto p-6 bg-white rounded-lg shadow-lg">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-bold text-gray-800">
+    <div className="max-w-xl mx-auto p-6 bg-[#DCEBFE] border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-2xl font-black text-black">
           Connected Wallets
         </h2>
         <button
           onClick={() => disconnectWallet()}
-          className="px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
+          className="px-3 py-1.5 bg-red-500 text-white font-bold text-sm border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px] transition-all"
         >
           Disconnect All
         </button>
@@ -49,79 +49,79 @@ export default function WalletInfo() {
       <div className="space-y-4">
         {/* MetaMask Wallet */}
         {walletState.ethAddress && (
-          <div className="border border-gray-200 rounded-lg p-4">
-            <div className="flex items-center space-x-3 mb-3">
-              <svg className="w-5 h-5 text-orange-500" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M21.49 1L13.5 8.99 15.51 11 21.49 1zM2.49 1L8.51 11 10.5 8.99 2.49 1zM1 2.49L9.01 10.5 7 12.51 1 4.49V2.49zM1 21.49L7 13.51 9.01 15.5 1 23.49V21.49zM21.49 23L13.5 15.01 15.51 13 21.49 23zM23 21.49L14.99 13.5 13 15.51 23 23.49V21.49z"/>
-              </svg>
-              <span className="font-semibold text-gray-700">MetaMask</span>
+          <div className="p-4 bg-white border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <img src="/images/MetaMask_Fox.png" alt="MetaMask" className="w-6 h-6 object-contain" />
+                <span className="text-xl font-black">MetaMask</span>
+              </div>
               <button
                 onClick={() => disconnectWallet('metamask')}
-                className="ml-auto px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
+                className="px-3 py-1.5 bg-red-500 text-white font-bold text-sm border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px] transition-all"
               >
                 Disconnect
               </button>
             </div>
             
             <div className="space-y-2">
-              <div className="text-sm text-gray-600">Address: {formatAddress(walletState.ethAddress)}</div>
-              <div className="text-sm text-gray-600">Network: {walletState.ethChainId ? getNetworkName(walletState.ethChainId, 'metamask') : 'N/A'}</div>
-              <div className="text-sm text-gray-600">Balance: {walletState.ethBalance ? `${parseFloat(walletState.ethBalance).toFixed(4)} ETH` : 'N/A'}</div>
+              <div className="text-base font-bold">Address: {formatAddress(walletState.ethAddress)}</div>
+              <div className="text-base font-bold">Network: {walletState.ethChainId ? getNetworkName(walletState.ethChainId, 'metamask') : 'N/A'}</div>
+              <div className="text-base font-bold">Balance: {walletState.ethBalance ? `${parseFloat(walletState.ethBalance).toFixed(4)} ETH` : 'N/A'}</div>
             </div>
           </div>
         )}
 
         {/* TronLink Wallet */}
         {walletState.tronAddress && (
-          <div className="border border-gray-200 rounded-lg p-4">
-            <div className="flex items-center space-x-3 mb-3">
-              <svg className="w-5 h-5 text-blue-500" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2L2 7v10c0 5.55 3.84 9.74 9 11 5.16-1.26 9-5.45 9-11V7l-10-5zM12 20c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/>
-              </svg>
-              <span className="font-semibold text-gray-700">TronLink</span>
+          <div className="p-4 bg-white border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <img src="/images/Tron.png" alt="TronLink" className="w-6 h-6 object-contain" />
+                <span className="text-xl font-black">TronLink</span>
+              </div>
               <button
                 onClick={() => disconnectWallet('tronlink')}
-                className="ml-auto px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
+                className="px-3 py-1.5 bg-red-500 text-white font-bold text-sm border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px] transition-all"
               >
                 Disconnect
               </button>
             </div>
             
             <div className="space-y-2">
-              <div className="text-sm text-gray-600">Address: {formatAddress(walletState.tronAddress)}</div>
-              <div className="text-sm text-gray-600">Network: {walletState.tronChainId ? getNetworkName(walletState.tronChainId, 'tronlink') : 'N/A'}</div>
-              <div className="text-sm text-gray-600">Balance: {walletState.tronBalance ? `${parseFloat(walletState.tronBalance).toFixed(4)} TRX` : 'N/A'}</div>
+              <div className="text-base font-bold">Address: {formatAddress(walletState.tronAddress)}</div>
+              <div className="text-base font-bold">Network: {walletState.tronChainId ? getNetworkName(walletState.tronChainId, 'tronlink') : 'N/A'}</div>
+              <div className="text-base font-bold">Balance: {walletState.tronBalance ? `${parseFloat(walletState.tronBalance).toFixed(4)} TRX` : 'N/A'}</div>
             </div>
           </div>
         )}
 
         {/* No Wallets Connected */}
         {!walletState.ethAddress && !walletState.tronAddress && (
-          <div className="text-center text-gray-500 py-4">
-            No wallets connected
+          <div className="text-center p-4 bg-white border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+            <span className="text-lg font-black">No wallets connected</span>
           </div>
         )}
 
-        {/* Refresh Button */}
-        {(walletState.ethAddress || walletState.tronAddress) && (
-          <button
-            onClick={refreshBalance}
-            className="w-full px-3 py-2 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
-          >
-            Refresh Balances
-          </button>
-        )}
+        <div className="grid grid-cols-2 gap-4 mt-6">
+          {/* Refresh Button */}
+          {(walletState.ethAddress || walletState.tronAddress) && (
+            <button
+              onClick={refreshBalance}
+              className="px-4 py-2 bg-[#4285f4] text-white font-bold text-sm border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px] transition-all"
+            >
+              Refresh Balances
+            </button>
+          )}
 
-        {/* Connection Status */}
-        {walletState.isConnected && (
-          <div className="flex items-center space-x-2 p-3 bg-green-50 border border-green-200 rounded-lg">
-            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-            <span className="text-sm text-green-700 font-medium">
-              {walletState.connectedWallets.length === 2 ? 'Both Wallets Connected' : 'Wallet Connected'}
-            </span>
-          </div>
-        )}
+          {/* Connection Status */}
+          {walletState.isConnected && (
+            <div className="flex items-center justify-center gap-2 px-4 py-2 bg-green-500 text-white font-bold text-sm border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+              <div className="w-2 h-2 bg-white rounded-full"></div>
+              <span>Connected</span>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
-} 
+}

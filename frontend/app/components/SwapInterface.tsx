@@ -394,47 +394,55 @@ export default function SwapInterface() {
       )}
 
       {/* Swap Form */}
-      <div className="bg-white rounded-lg shadow-lg p-6">
-        <h2 className="text-2xl font-bold text-gray-800 mb-6">Swap Tokens</h2>
+      <div className={`${formData.direction === 'eth→trx' ? 'bg-[#DCEBFE]' : 'bg-[#fde8e8]'} border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] p-6`}>
+        <h2 className="text-3xl font-black text-black mb-6">Swap Tokens</h2>
         
         {error && (
-          <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+          <div className="mb-4 p-4 bg-red-100 border-2 border-black text-black font-bold">
             {error}
           </div>
         )}
 
         {/* Direction Toggle */}
         <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-xl font-black text-black mb-3">
             Swap Direction
           </label>
-          <div className="flex bg-gray-100 rounded-lg p-1">
+          <div className="grid grid-cols-2 gap-4">
             <button
               onClick={() => handleDirectionChange('eth→trx')}
-              className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+              className={`py-3 px-4 text-lg font-bold border-2 border-black transition-all ${
                 formData.direction === 'eth→trx'
-                  ? 'bg-white text-blue-600 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-800'
+                  ? 'bg-[#4285f4] text-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]'
+                  : 'bg-white hover:bg-[#4285f4] hover:text-white shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]'
               }`}
             >
-              ETH → TRX
+              <div className="flex items-center justify-center gap-2">
+                <img src="/images/ethpng.png" alt="ETH" className="w-8 h-8 object-contain" />
+                <span>ETH → TRX</span>
+                <img src="/images/Tron.png" alt="TRX" className="w-6 h-6 object-contain" />
+              </div>
             </button>
             <button
               onClick={() => handleDirectionChange('trx→eth')}
-              className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+              className={`py-3 px-4 text-lg font-bold border-2 border-black transition-all ${
                 formData.direction === 'trx→eth'
-                  ? 'bg-white text-blue-600 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-800'
+                  ? 'bg-[#C23631] text-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]'
+                  : 'bg-white hover:bg-[#C23631] hover:text-white shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]'
               }`}
             >
-              TRX → ETH
+              <div className="flex items-center justify-center gap-2">
+                <img src="/images/Tron.png" alt="TRX" className="w-6 h-6 object-contain" />
+                <span>TRX → ETH</span>
+                <img src="/images/ethpng.png" alt="ETH" className="w-8 h-8 object-contain" />
+              </div>
             </button>
           </div>
         </div>
 
         {/* Amount Input */}
         <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-xl font-black text-black mb-3">
             Amount ({formData.direction === 'eth→trx' ? 'ETH' : 'TRX'})
           </label>
           <div className="relative">
@@ -445,9 +453,9 @@ export default function SwapInterface() {
               placeholder="0.0"
               step="0.000001"
               min="0"
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-3 bg-white border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] text-lg font-bold focus:outline-none focus:shadow-none focus:translate-x-[2px] focus:translate-y-[2px] transition-all"
             />
-            <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500">
+            <div className="absolute right-4 top-1/2 transform -translate-y-1/2 text-black font-bold">
               {formData.direction === 'eth→trx' ? 'ETH' : 'TRX'}
             </div>
           </div>
@@ -455,27 +463,27 @@ export default function SwapInterface() {
 
         {/* Resolver Selection */}
         <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-xl font-black text-black mb-3">
             Select Resolver
           </label>
           {loading ? (
-            <div className="p-4 text-center text-gray-500">Loading resolvers...</div>
+            <div className="p-4 text-center font-bold text-black">Loading resolvers...</div>
           ) : resolvers.length > 0 ? (
-            <div className="space-y-2">
+            <div className="space-y-3">
               {resolvers.map((resolver) => (
                 <button
                   key={resolver.id}
                   onClick={() => handleResolverSelect(resolver)}
-                  className={`w-full p-4 border rounded-lg text-left transition-colors ${
+                  className={`w-full p-4 border-2 border-black text-left transition-all ${
                     formData.selectedResolver?.id === resolver.id
-                      ? 'border-blue-500 bg-blue-50'
-                      : 'border-gray-200 hover:border-gray-300'
+                      ? `bg-${formData.direction === 'eth→trx' ? '[#4285f4]' : '[#C23631]'} text-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]`
+                      : `bg-white hover:bg-${formData.direction === 'eth→trx' ? '[#4285f4]' : '[#C23631]'} hover:text-white shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]`
                   }`}
                 >
                   <div className="flex justify-between items-center">
                     <div>
-                      <div className="font-medium text-gray-900">{resolver.name}</div>
-                      <div className="text-sm text-gray-500">
+                      <div className="text-lg font-black">{resolver.name}</div>
+                      <div className="text-base font-bold">
                         Fee: {resolver.fee_percent}% | 
                         Liquidity: {formData.direction === 'eth→trx' 
                           ? `${resolver.liquidity_eth} ETH` 
@@ -484,8 +492,8 @@ export default function SwapInterface() {
                       </div>
                     </div>
                     {formData.selectedResolver?.id === resolver.id && (
-                      <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
-                        <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                      <div className="w-6 h-6 bg-white rounded-full flex items-center justify-center border-2 border-black">
+                        <svg className={`w-4 h-4 text-${formData.direction === 'eth→trx' ? '[#4285f4]' : '[#C23631]'}`} fill="currentColor" viewBox="0 0 20 20">
                           <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                         </svg>
                       </div>
@@ -495,30 +503,30 @@ export default function SwapInterface() {
               ))}
             </div>
           ) : (
-            <div className="p-4 text-center text-gray-500">No resolvers available for this direction</div>
+            <div className="p-4 text-center font-bold text-black">No resolvers available for this direction</div>
           )}
         </div>
 
         {/* Estimate */}
         {estimate && (
-          <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-            <h3 className="font-medium text-gray-900 mb-2">Swap Estimate</h3>
-            <div className="space-y-1 text-sm">
+          <div className="mb-6 p-4 bg-white border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+            <h3 className="text-xl font-black text-black mb-3">Swap Estimate</h3>
+            <div className="space-y-2 text-base">
               <div className="flex justify-between">
-                <span className="text-gray-600">You pay:</span>
-                <span className="font-medium">{estimate.userAmount} {estimate.userToken}</span>
+                <span className="font-bold text-black">You pay:</span>
+                <span className="font-bold">{estimate.userAmount} {estimate.userToken}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">Resolver fee:</span>
-                <span className="font-medium">{estimate.resolverFee} {estimate.userToken}</span>
+                <span className="font-bold text-black">Resolver fee:</span>
+                <span className="font-bold">{estimate.resolverFee} {estimate.userToken}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">Total:</span>
-                <span className="font-medium">{estimate.totalAmount} {estimate.userToken}</span>
+                <span className="font-bold text-black">Total:</span>
+                <span className="font-bold">{estimate.totalAmount} {estimate.userToken}</span>
               </div>
-              <div className="flex justify-between pt-2 border-t border-gray-200">
-                <span className="text-gray-600">You receive:</span>
-                <span className="font-medium text-green-600">
+              <div className="flex justify-between pt-3 border-t-2 border-black">
+                <span className="font-bold text-black">You receive:</span>
+                <span className={`font-bold text-${formData.direction === 'eth→trx' ? '[#4285f4]' : '[#C23631]'}`}>
                   ~{estimate.estimatedReceive} {formData.direction === 'eth→trx' ? 'TRX' : 'ETH'}
                 </span>
               </div>
@@ -530,10 +538,10 @@ export default function SwapInterface() {
         <button
           onClick={handleSwap}
           disabled={loading || !formData.amount || !formData.selectedResolver}
-          className={`w-full py-3 px-4 rounded-lg font-medium transition-colors ${
+          className={`w-full py-4 px-6 text-xl font-black border-2 border-black transition-all ${
             loading || !formData.amount || !formData.selectedResolver
               ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-              : 'bg-blue-600 text-white hover:bg-blue-700'
+              : `bg-${formData.direction === 'eth→trx' ? '[#4285f4]' : '[#C23631]'} text-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px]`
           }`}
         >
           {loading ? 'Processing...' : 'Execute Swap'}

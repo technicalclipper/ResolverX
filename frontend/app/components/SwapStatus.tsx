@@ -63,7 +63,7 @@ export default function SwapStatus({ swap }: SwapStatusProps) {
     switch (status) {
       case 'initiated': return '🔄';
       case 'locked': return '🔒';
-      case 'claimed': return '✅';
+      case 'claimed': return '';
       case 'refunded': return '❌';
       default: return '⏳';
     }
@@ -86,58 +86,64 @@ export default function SwapStatus({ swap }: SwapStatusProps) {
   if (!swap) return null;
 
   return (
-    <div className="bg-white rounded-lg shadow-lg p-6">
+    <div className="bg-[#DCEBFE] border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] p-6">
       <div className="flex items-center justify-between mb-6">
-        <h3 className="text-xl font-bold text-gray-800">Swap Status & Transaction Details</h3>
+        <h3 className="text-2xl font-black text-black">Swap Status & Transaction Details</h3>
         <button
           onClick={pollSwapStatus}
           disabled={loading}
-          className="text-sm text-blue-600 hover:text-blue-800 disabled:opacity-50"
+          className="px-4 py-2 bg-[#4285f4] text-white font-bold border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] transition-all disabled:opacity-50"
         >
           {loading ? 'Refreshing...' : 'Refresh'}
         </button>
       </div>
 
       {error && (
-        <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+        <div className="mb-4 p-4 bg-red-100 border-2 border-black text-black font-bold">
           {error}
         </div>
       )}
 
       <div className="space-y-6">
         {/* Swap Overview */}
-        <div className="bg-blue-50 p-4 rounded-lg">
-          <h4 className="font-semibold text-blue-800 mb-3">Swap Overview</h4>
-          <div className="grid grid-cols-2 gap-4 text-sm">
+        <div className="bg-white border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] p-4">
+          <h4 className="text-xl font-black text-black mb-4">Swap Overview</h4>
+          <div className="grid grid-cols-2 gap-4">
             <div>
-              <span className="text-blue-600">Direction:</span>
-              <span className="ml-2 font-medium">{swap.direction}</span>
+              <span className="font-bold text-black">Direction:</span>
+              <span className="ml-2 font-bold">{swap.direction}</span>
             </div>
             <div>
-              <span className="text-blue-600">Amount:</span>
-              <span className="ml-2 font-medium">{swap.user_amount} {swap.direction === 'eth→trx' ? 'ETH' : 'TRX'}</span>
+              <span className="font-bold text-black">Amount:</span>
+              <span className="ml-2 font-bold">{swap.user_amount} {swap.direction === 'eth→trx' ? 'ETH' : 'TRX'}</span>
             </div>
             <div>
-              <span className="text-blue-600">Resolver:</span>
-              <span className="ml-2 font-medium">{swap.resolver?.name}</span>
+              <span className="font-bold text-black">Resolver:</span>
+              <span className="ml-2 font-bold">{swap.resolver?.name}</span>
             </div>
             <div>
-              <span className="text-blue-600">Hashlock:</span>
-              <span className="ml-2 font-mono text-xs break-all">{swap.hashlock}</span>
+              <span className="font-bold text-black">Hashlock:</span>
+              <span className="ml-2 font-mono font-bold break-all">{swap.hashlock}</span>
             </div>
           </div>
         </div>
 
         {/* Status */}
         {swapState && (
-          <div className="bg-gray-50 p-4 rounded-lg">
-            <div className="flex items-center space-x-3 mb-4">
-              <span className="text-3xl">{getStatusIcon(swapState.status)}</span>
+          <div className="bg-white border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] p-4">
+            <div className="flex items-center gap-4 mb-4">
+              <span className="text-4xl">{getStatusIcon(swapState.status)}</span>
               <div>
-                <div className={`inline-flex px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(swapState.status)}`}>
+                <div className={`inline-flex px-4 py-2 border-2 border-black font-black text-lg ${
+                  swapState.status === 'initiated' ? 'bg-yellow-400' :
+                  swapState.status === 'locked' ? 'bg-[#4285f4] text-white' :
+                  swapState.status === 'claimed' ? 'bg-green-500 text-white' :
+                  swapState.status === 'refunded' ? 'bg-red-500 text-white' :
+                  'bg-gray-200'
+                }`}>
                   {swapState.status.toUpperCase()}
                 </div>
-                <p className="text-sm text-gray-600 mt-1">
+                <p className="text-lg font-bold text-black mt-2">
                   {swapState.status === 'claimed' ? 'Swap completed successfully!' : 
                    swapState.status === 'locked' ? 'Funds locked on both chains' :
                    swapState.status === 'initiated' ? 'Swap initiated' : 'Processing...'}
@@ -146,48 +152,48 @@ export default function SwapStatus({ swap }: SwapStatusProps) {
             </div>
 
             {/* Transaction Summary */}
-            <div className="bg-white p-4 rounded-lg border">
-              <h5 className="font-semibold text-gray-800 mb-3">Transaction Summary</h5>
+            <div className="bg-[#DCEBFE] border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] p-4 mt-6">
+              <h5 className="text-xl font-black text-black mb-4">Transaction Summary</h5>
               
-              <div className="space-y-4">
+              <div className="space-y-6">
                 {/* Step 1: User Lock */}
-                <div className="border-l-4 border-blue-500 pl-4">
+                <div className="bg-white border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] p-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h6 className="font-medium text-gray-800">1. User Lock</h6>
-                      <p className="text-sm text-gray-600">
+                      <h6 className="text-lg font-black text-black">1. User Lock</h6>
+                      <p className="text-base font-bold mt-1">
                         {swap.direction === 'eth→trx' ? 'User locks ETH on Ethereum' : 'User locks TRX on TRON'}
                       </p>
                     </div>
                     <div className="text-right">
                       {swap.direction === 'eth→trx' && swapState.eth_lock_tx ? (
-                        <div className="text-green-600 text-sm">✅ Completed</div>
+                        <div className="px-3 py-1 bg-green-500 text-white font-bold border-2 border-black">✅ Completed</div>
                       ) : swap.direction === 'trx→eth' && swapState.tron_lock_tx ? (
-                        <div className="text-green-600 text-sm">✅ Completed</div>
+                        <div className="px-3 py-1 bg-green-500 text-white font-bold border-2 border-black">✅ Completed</div>
                       ) : (
-                        <div className="text-yellow-600 text-sm">⏳ Pending</div>
+                        <div className="px-3 py-1 bg-yellow-400 font-bold border-2 border-black">⏳ Pending</div>
                       )}
                     </div>
                   </div>
                   {swap.direction === 'eth→trx' && swapState.eth_lock_tx && (
-                    <div className="mt-2">
+                    <div className="mt-3">
                       <a 
                         href={getTransactionExplorerUrl(swapState.eth_lock_tx, 'ethereum')}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-blue-600 hover:underline font-mono text-sm"
+                        className="inline-block px-3 py-1 bg-[#4285f4] text-white font-mono font-bold border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px] transition-all"
                       >
                         {formatTransactionHash(swapState.eth_lock_tx)}
                       </a>
                     </div>
                   )}
                   {swap.direction === 'trx→eth' && swapState.tron_lock_tx && (
-                    <div className="mt-2">
+                    <div className="mt-3">
                       <a 
                         href={getTransactionExplorerUrl(swapState.tron_lock_tx, 'tron')}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-blue-600 hover:underline font-mono text-sm"
+                        className="inline-block px-3 py-1 bg-[#C23631] text-white font-mono font-bold border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px] transition-all"
                       >
                         {formatTransactionHash(swapState.tron_lock_tx)}
                       </a>
@@ -196,43 +202,43 @@ export default function SwapStatus({ swap }: SwapStatusProps) {
                 </div>
 
                 {/* Step 2: Resolver Lock */}
-                <div className="border-l-4 border-green-500 pl-4">
+                <div className="bg-white border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] p-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h6 className="font-medium text-gray-800">2. Resolver Lock</h6>
-                      <p className="text-sm text-gray-600">
+                      <h6 className="text-lg font-black text-black">2. Resolver Lock</h6>
+                      <p className="text-base font-bold mt-1">
                         {swap.direction === 'eth→trx' ? 'Resolver locks TRX on TRON' : 'Resolver locks ETH on Ethereum'}
                       </p>
                     </div>
                     <div className="text-right">
                       {swapState.tron_lock_tx && swap.direction === 'eth→trx' ? (
-                        <div className="text-green-600 text-sm">✅ Completed</div>
+                        <div className="px-3 py-1 bg-green-500 text-white font-bold border-2 border-black">✅ Completed</div>
                       ) : swapState.eth_lock_tx && swap.direction === 'trx→eth' ? (
-                        <div className="text-green-600 text-sm">✅ Completed</div>
+                        <div className="px-3 py-1 bg-green-500 text-white font-bold border-2 border-black">✅ Completed</div>
                       ) : (
-                        <div className="text-yellow-600 text-sm">⏳ Pending</div>
+                        <div className="px-3 py-1 bg-yellow-400 font-bold border-2 border-black">⏳ Pending</div>
                       )}
                     </div>
                   </div>
                   {swapState.tron_lock_tx && swap.direction === 'eth→trx' && (
-                    <div className="mt-2">
+                    <div className="mt-3">
                       <a 
                         href={getTransactionExplorerUrl(swapState.tron_lock_tx, 'tron')}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-blue-600 hover:underline font-mono text-sm"
+                        className="inline-block px-3 py-1 bg-[#C23631] text-white font-mono font-bold border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px] transition-all"
                       >
                         {formatTransactionHash(swapState.tron_lock_tx)}
                       </a>
                     </div>
                   )}
                   {swapState.eth_lock_tx && swap.direction === 'trx→eth' && (
-                    <div className="mt-2">
+                    <div className="mt-3">
                       <a 
                         href={getTransactionExplorerUrl(swapState.eth_lock_tx, 'ethereum')}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-blue-600 hover:underline font-mono text-sm"
+                        className="inline-block px-3 py-1 bg-[#4285f4] text-white font-mono font-bold border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px] transition-all"
                       >
                         {formatTransactionHash(swapState.eth_lock_tx)}
                       </a>
@@ -241,43 +247,43 @@ export default function SwapStatus({ swap }: SwapStatusProps) {
                 </div>
 
                 {/* Step 3: User Claim */}
-                <div className="border-l-4 border-purple-500 pl-4">
+                <div className="bg-white border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] p-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h6 className="font-medium text-gray-800">3. User Claim</h6>
-                      <p className="text-sm text-gray-600">
+                      <h6 className="text-lg font-black text-black">3. User Claim</h6>
+                      <p className="text-base font-bold mt-1">
                         {swap.direction === 'eth→trx' ? 'User claims TRX on TRON' : 'User claims ETH on Ethereum'}
                       </p>
                     </div>
                     <div className="text-right">
                       {swapState.tron_claim_tx && swap.direction === 'eth→trx' ? (
-                        <div className="text-green-600 text-sm">✅ Completed</div>
+                        <div className="px-3 py-1 bg-green-500 text-white font-bold border-2 border-black">✅ Completed</div>
                       ) : swapState.eth_claim_tx && swap.direction === 'trx→eth' ? (
-                        <div className="text-green-600 text-sm">✅ Completed</div>
+                        <div className="px-3 py-1 bg-green-500 text-white font-bold border-2 border-black">✅ Completed</div>
                       ) : (
-                        <div className="text-yellow-600 text-sm">⏳ Pending</div>
+                        <div className="px-3 py-1 bg-yellow-400 font-bold border-2 border-black">⏳ Pending</div>
                       )}
                     </div>
                   </div>
                   {swapState.tron_claim_tx && swap.direction === 'eth→trx' && (
-                    <div className="mt-2">
+                    <div className="mt-3">
                       <a 
                         href={getTransactionExplorerUrl(swapState.tron_claim_tx, 'tron')}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-blue-600 hover:underline font-mono text-sm"
+                        className="inline-block px-3 py-1 bg-[#C23631] text-white font-mono font-bold border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px] transition-all"
                       >
                         {formatTransactionHash(swapState.tron_claim_tx)}
                       </a>
                     </div>
                   )}
                   {swapState.eth_claim_tx && swap.direction === 'trx→eth' && (
-                    <div className="mt-2">
+                    <div className="mt-3">
                       <a 
                         href={getTransactionExplorerUrl(swapState.eth_claim_tx, 'ethereum')}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-blue-600 hover:underline font-mono text-sm"
+                        className="inline-block px-3 py-1 bg-[#4285f4] text-white font-mono font-bold border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px] transition-all"
                       >
                         {formatTransactionHash(swapState.eth_claim_tx)}
                       </a>
@@ -286,43 +292,43 @@ export default function SwapStatus({ swap }: SwapStatusProps) {
                 </div>
 
                 {/* Step 4: Resolver Claim */}
-                <div className="border-l-4 border-orange-500 pl-4">
+                <div className="bg-white border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] p-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h6 className="font-medium text-gray-800">4. Resolver Claim</h6>
-                      <p className="text-sm text-gray-600">
+                      <h6 className="text-lg font-black text-black">4. Resolver Claim</h6>
+                      <p className="text-base font-bold mt-1">
                         {swap.direction === 'eth→trx' ? 'Resolver claims ETH on Ethereum' : 'Resolver claims TRX on TRON'}
                       </p>
                     </div>
                     <div className="text-right">
                       {swapState.eth_claim_tx && swap.direction === 'eth→trx' ? (
-                        <div className="text-green-600 text-sm">✅ Completed</div>
+                        <div className="px-3 py-1 bg-green-500 text-white font-bold border-2 border-black">✅ Completed</div>
                       ) : swapState.tron_claim_tx && swap.direction === 'trx→eth' ? (
-                        <div className="text-green-600 text-sm">✅ Completed</div>
+                        <div className="px-3 py-1 bg-green-500 text-white font-bold border-2 border-black">✅ Completed</div>
                       ) : (
-                        <div className="text-yellow-600 text-sm">⏳ Pending</div>
+                        <div className="px-3 py-1 bg-yellow-400 font-bold border-2 border-black">⏳ Pending</div>
                       )}
                     </div>
                   </div>
                   {swapState.eth_claim_tx && swap.direction === 'eth→trx' && (
-                    <div className="mt-2">
+                    <div className="mt-3">
                       <a 
                         href={getTransactionExplorerUrl(swapState.eth_claim_tx, 'ethereum')}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-blue-600 hover:underline font-mono text-sm"
+                        className="inline-block px-3 py-1 bg-[#4285f4] text-white font-mono font-bold border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px] transition-all"
                       >
                         {formatTransactionHash(swapState.eth_claim_tx)}
                       </a>
                     </div>
                   )}
                   {swapState.tron_claim_tx && swap.direction === 'trx→eth' && (
-                    <div className="mt-2">
+                    <div className="mt-3">
                       <a 
                         href={getTransactionExplorerUrl(swapState.tron_claim_tx, 'tron')}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-blue-600 hover:underline font-mono text-sm"
+                        className="inline-block px-3 py-1 bg-[#C23631] text-white font-mono font-bold border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px] transition-all"
                       >
                         {formatTransactionHash(swapState.tron_claim_tx)}
                       </a>
@@ -334,11 +340,11 @@ export default function SwapStatus({ swap }: SwapStatusProps) {
 
             {/* Action Buttons */}
             {swapState.status === 'locked' && (
-              <div className="mt-4">
+              <div className="mt-6">
                 <button
                   onClick={handleClaim}
                   disabled={loading}
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+                  className="w-full py-4 px-6 bg-green-500 text-white text-xl font-black border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] transition-all disabled:opacity-50"
                 >
                   {loading ? 'Claiming...' : 'Claim Tokens'}
                 </button>
@@ -347,12 +353,12 @@ export default function SwapStatus({ swap }: SwapStatusProps) {
 
             {/* Success Message */}
             {swapState.status === 'claimed' && (
-              <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
-                <div className="flex items-center">
-                  <span className="text-2xl mr-3">🎉</span>
+              <div className="mt-6 p-6 bg-white border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                <div className="flex items-center gap-4">
+                  <span className="text-4xl">🎉</span>
                   <div>
-                    <h6 className="font-semibold text-green-800">Swap Completed Successfully!</h6>
-                    <p className="text-sm text-green-600">
+                    <h6 className="text-xl font-black text-black">Swap Completed Successfully!</h6>
+                    <p className="text-lg font-bold mt-2">
                       All transactions have been completed. Your atomic swap is now finished.
                     </p>
                   </div>

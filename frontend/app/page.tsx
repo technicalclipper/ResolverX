@@ -4,15 +4,26 @@ import SwapInterface from './components/SwapInterface';
 export default function Home() {
   return (
     <main className="min-h-screen p-4">
-      <div className="max-w-6xl mx-auto">
+            <div className="max-w-6xl mx-auto relative">
         {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">
-            🔄 ResolverX
+        <div className="text-center mb-12">
+          <h1 className="text-6xl font-black text-black mb-6 flex items-center justify-center gap-4">
+            <img src="/images/rlogo.png" alt="ResolverX" className="w-28 h-28 object-contain" />
+            ResolverX
           </h1>
-          <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-            Secure cross-chain swaps between Ethereum and TRON with a decentralized resolver marketplace
-          </p>
+          <div className="relative">
+            <p className="text-2xl font-bold text-black max-w-2xl mx-auto">
+              Secure cross-chain swaps between Ethereum and TRON with a Decentralized Resolver Marketplace
+            </p>
+            <div className="absolute -top-1 -right-32">
+              <a 
+                href="/resolver/register" 
+                className="inline-block px-6 py-3 bg-[#4285f4] text-white text-lg font-black border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] transition-all whitespace-nowrap"
+              >
+                Join Resolver Marketplace
+              </a>
+            </div>
+          </div>
         </div>
         
         {/* Main Content */}

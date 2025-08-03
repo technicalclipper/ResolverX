@@ -29,17 +29,17 @@ export default function WalletConnect() {
   const hasTronLinkInProviders = availableProviders.some(p => p.type === 'tronlink');
 
   return (
-    <div className="max-w-md mx-auto p-6 bg-white rounded-lg shadow-lg">
-      <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">
+    <div className="max-w-xl mx-auto p-8 bg-[#DCEBFE] border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+      <h2 className="text-3xl font-black text-black mb-4 text-center">
         Connect Your Wallets
       </h2>
       
-      <p className="text-gray-600 mb-6 text-center">
+      <p className="text-xl font-bold mb-8 text-center">
         You need to connect both MetaMask and TronLink to perform atomic swaps.
       </p>
       
       {error && (
-        <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+        <div className="mb-6 p-4 bg-red-100 border-2 border-black text-black font-bold">
           {error}
         </div>
       )}
@@ -50,17 +50,19 @@ export default function WalletConnect() {
           <button
             onClick={() => handleConnect('metamask')}
             disabled={walletState.isConnecting || !!walletState.ethAddress}
-            className={`w-full p-4 rounded-lg border-2 transition-all duration-200 flex items-center justify-center space-x-3 ${
+            className={`w-full p-6 border-2 border-black transition-all flex items-center justify-center space-x-3 text-lg font-bold ${
               walletState.ethAddress
-                ? 'border-green-500 bg-green-50 text-green-700 cursor-not-allowed'
+                ? 'bg-green-400 cursor-not-allowed'
                 : availableProviders.some(p => p.type === 'metamask' && p.isAvailable)
-                ? 'border-blue-500 hover:border-blue-600 hover:bg-blue-50 text-blue-700'
-                : 'border-gray-300 bg-gray-100 text-gray-500 cursor-not-allowed'
+                ? 'bg-[#4285f4] hover:bg-[#4285f4]/90 text-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px]'
+                : 'bg-gray-200 text-gray-500 cursor-not-allowed'
             } ${walletState.isConnecting ? 'opacity-50 cursor-wait' : ''}`}
           >
-            <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M21.49 1L13.5 8.99 15.51 11 21.49 1zM2.49 1L8.51 11 10.5 8.99 2.49 1zM1 2.49L9.01 10.5 7 12.51 1 4.49V2.49zM1 21.49L7 13.51 9.01 15.5 1 23.49V21.49zM21.49 23L13.5 15.01 15.51 13 21.49 23zM23 21.49L14.99 13.5 13 15.51 23 23.49V21.49z"/>
-            </svg>
+            <img 
+              src="/images/MetaMask_Fox.png" 
+              alt="MetaMask" 
+              className="w-10 h-10 object-contain" 
+            />
             <span className="font-semibold">
               {walletState.ethAddress 
                 ? 'MetaMask Connected ✓' 
@@ -84,17 +86,19 @@ export default function WalletConnect() {
           <button
             onClick={() => handleConnect('tronlink')}
             disabled={walletState.isConnecting || !!walletState.tronAddress}
-            className={`w-full p-4 rounded-lg border-2 transition-all duration-200 flex items-center justify-center space-x-3 ${
+            className={`w-full p-6 border-2 border-black transition-all flex items-center justify-center space-x-3 text-lg font-bold ${
               walletState.tronAddress
-                ? 'border-green-500 bg-green-50 text-green-700 cursor-not-allowed'
+                ? 'bg-green-400 cursor-not-allowed'
                 : availableProviders.some(p => p.type === 'tronlink' && p.isAvailable)
-                ? 'border-green-500 hover:border-green-600 hover:bg-green-50 text-green-700'
-                : 'border-gray-300 bg-gray-100 text-gray-500 cursor-not-allowed'
+                ? 'bg-[#4285f4] hover:bg-[#4285f4]/90 text-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px]'
+                : 'bg-gray-200 text-gray-500 cursor-not-allowed'
             } ${walletState.isConnecting ? 'opacity-50 cursor-wait' : ''}`}
           >
-            <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2L2 7v10c0 5.55 3.84 9.74 9 11 5.16-1.26 9-5.45 9-11V7l-10-5zM12 20c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/>
-            </svg>
+            <img 
+              src="/images/Tron.png" 
+              alt="TronLink" 
+              className="w-10 h-10 object-contain" 
+            />
             <span className="font-semibold">
               {walletState.tronAddress 
                 ? 'TronLink Connected ✓' 
@@ -115,19 +119,26 @@ export default function WalletConnect() {
 
         {/* No providers found message */}
         {!hasAvailableProviders && (
-          <div className="text-center p-6 bg-gray-50 rounded-lg">
-            <p className="text-gray-600 mb-4">
-              No wallet extensions detected
+          <div className="text-center p-8">
+            <h2 className="text-4xl font-black text-black mb-6">
+              Connect Both Wallets to Start Swapping
+            </h2>
+            <p className="text-2xl font-bold text-black mb-8">
+              You need to connect both MetaMask and TronLink wallets to perform atomic swaps.
             </p>
-            <div className="space-y-2 text-sm text-gray-500">
-              <p>Please install one of the following:</p>
-              <ul className="space-y-1">
-                <li>• <a href="https://metamask.io" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">MetaMask</a> for Ethereum</li>
-                <li>• <a href="https://www.tronlink.org" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">TronLink</a> for TRON</li>
-              </ul>
-              <p className="mt-3 text-xs text-gray-400">
-                After installing, refresh this page and try connecting again.
-              </p>
+            <div className="space-y-4">
+              <div className="flex items-center gap-4">
+                <div className="w-4 h-4 rounded-full bg-red-500" />
+                <span className="text-xl font-black">
+                  • MetaMask (Ethereum) wallet not connected
+                </span>
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="w-4 h-4 rounded-full bg-red-500" />
+                <span className="text-xl font-black">
+                  • TronLink (TRON) wallet not connected
+                </span>
+              </div>
             </div>
           </div>
         )}
