@@ -14,8 +14,7 @@ ResolverX enables secure, decentralized, and trustless cross-chain token swaps b
 ### Core Components
 
 1. **Smart Contracts**
-   - Single HTLC contract deployed on both chains
-   - Functions: `lock()`, `claim()`, `refund()`
+   - HTLC contracts deployed on both chains
    - Timelock system for security
    - State management to prevent double-spending
 
