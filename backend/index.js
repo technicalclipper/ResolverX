@@ -1581,32 +1581,59 @@ app.post('/swaps/:hashlock/trigger-resolver-claim', async (req, res) => {
             console.log('✅ User ETH claim confirmed:', swap.eth_claim_tx);
             
             // Wait for transaction confirmation
-            console.log('⏳ Waiting for user ETH claim transaction confirmation...');
+            console.log('⏳ Checking user ETH claim transaction confirmation...');
             let confirmed = false;
             let attempts = 0;
-            const maxAttempts = 10;
+            const maxAttempts = 5;
+            const requiredConfirmations = 1;
             
             while (!confirmed && attempts < maxAttempts) {
                 try {
-                    const receipt = await ethProvider.getTransactionReceipt(swap.eth_claim_tx);
-                    if (receipt && receipt.confirmations > 0) {
-                        confirmed = true;
-                        console.log('✅ User ETH claim transaction confirmed with', receipt.confirmations, 'confirmations');
-                    } else {
-                        console.log(`⏳ Waiting for confirmation... (attempt ${attempts + 1}/${maxAttempts})`);
-                        await new Promise(resolve => setTimeout(resolve, 3000)); // Wait 3 seconds
+                    console.log(`⏳ Checking confirmation status (attempt ${attempts + 1}/${maxAttempts})...`);
+                    const tx = await ethProvider.getTransaction(swap.eth_claim_tx);
+                    
+                    if (!tx) {
+                        console.log('⚠️ Transaction not found yet, waiting...');
+                        await new Promise(resolve => setTimeout(resolve, 5000));
                         attempts++;
+                        continue;
                     }
-                } catch (error) {
-                    console.log(`⏳ Error checking confirmation: ${error.message}, retrying...`);
-                    await new Promise(resolve => setTimeout(resolve, 3000));
+
+                    const receipt = await tx.wait(requiredConfirmations);
+                    const currentConfirmations = receipt ? await receipt.confirmations() : 0;
+                    if (currentConfirmations >= requiredConfirmations) {
+                        const finalConfirmations = await receipt.confirmations();
+                        console.log(`✅ Transaction confirmed with ${finalConfirmations} confirmations`);
+                        confirmed = true;
+                        break;
+                    }
+
+                    console.log(`⏳ Only ${currentConfirmations} confirmations, waiting for ${requiredConfirmations}...`);
+                    await new Promise(resolve => setTimeout(resolve, 5000));
                     attempts++;
+                } catch (error) {
+                    if (error.code === 'NETWORK_ERROR') {
+                        console.log('⚠️ Network error, retrying...');
+                        await new Promise(resolve => setTimeout(resolve, 5000));
+                        attempts++;
+                        continue;
+                    }
+                    
+                    if (error.code === 'TIMEOUT') {
+                        console.log('⚠️ Request timeout, retrying...');
+                        await new Promise(resolve => setTimeout(resolve, 5000));
+                        attempts++;
+                        continue;
+                    }
+
+                    console.log(`❌ Error checking confirmation: ${error.message}`);
+                    throw error;
                 }
             }
             
             if (!confirmed) {
                 return res.status(400).json({ 
-                    error: 'User ETH claim transaction not confirmed yet. Please wait and try again.' 
+                    error: 'User ETH claim transaction not confirmed yet. Please try again in a few seconds.' 
                 });
             }
             
