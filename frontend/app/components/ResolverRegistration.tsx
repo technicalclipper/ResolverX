@@ -16,6 +16,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 
+type Direction = 'eth→trx' | 'trx→eth';
+
 const neoBrutalismInput = "border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:shadow-none transition-shadow";
 
 const apiClient = ApiClient.getInstance();
@@ -26,7 +28,16 @@ export default function ResolverRegistration() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    name: string;
+    endpoint: string;
+    eth_address: string;
+    tron_address: string;
+    supported_directions: Direction[];
+    liquidity_eth: string;
+    liquidity_trx: string;
+    fee_percent: number;
+  }>({
     name: '',
     endpoint: '',
     eth_address: '',

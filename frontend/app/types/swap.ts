@@ -1,5 +1,5 @@
 export interface Resolver {
-  id: string;
+  id: number;
   name: string;
   endpoint: string;
   supported_directions: string[];

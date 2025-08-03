@@ -35,9 +35,57 @@ export default function SwapStatus({ swap }: SwapStatusProps) {
     try {
       setLoading(true);
       setError(null);
+
+      // Get claim parameters
+      const chain = swap.direction === 'eth→trx' ? 'tron' : 'ethereum';
+      const claimParams = await apiClient.getClaimParams(swap.hashlock, chain, swap.secret);
       
-      const result = await apiClient.claimSwap(swap.hashlock);
-      console.log('Claim result:', result);
+      let txHash: string;
+      
+      if (chain === 'ethereum') {
+        // Sign ETH claim with MetaMask
+        if (!window.ethereum) {
+          throw new Error('MetaMask not found');
+        }
+
+        const txParams = claimParams.transactionParams;
+        const transactionObject = {
+          to: txParams.to,
+          data: txParams.data,
+          value: txParams.value,
+          chainId: `0x${txParams.chainId.toString(16)}`
+        };
+
+        txHash = await window.ethereum.request({
+          method: 'eth_sendTransaction',
+          params: [transactionObject]
+        });
+
+      } else if (chain === 'tron') {
+        // Sign TRX claim with TronLink
+        if (!window.tronWeb) {
+          throw new Error('TronLink not found');
+        }
+
+        const txParams = claimParams.transactionParams;
+        const result = await window.tronWeb.contract().at(txParams.contractAddress)
+          .then(contract => {
+            return contract[txParams.functionName](...txParams.parameters).send({
+              feeLimit: txParams.feeLimit,
+              callValue: txParams.callValue
+            });
+          });
+
+        txHash = result;
+      } else {
+        throw new Error(`Unsupported chain: ${chain}`);
+      }
+
+      console.log(`${chain.toUpperCase()} claim transaction signed:`, txHash);
+
+      // Submit signed transaction to backend
+      const result = await apiClient.submitClaim(swap.hashlock, chain, txHash);
+      console.log('Claim submission result:', result);
       
       // Poll for updated status
       setTimeout(pollSwapStatus, 2000);
