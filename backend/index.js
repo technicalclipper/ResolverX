@@ -880,19 +880,135 @@ app.get('/resolvers-info', async (req, res) => {
     }
 });
 
+// Register new resolver
+app.post('/resolvers', async (req, res) => {
+    try {
+        const {
+            name,
+            endpoint,
+            eth_address,
+            tron_address,
+            supported_directions = ['eth→trx', 'trx→eth'],
+            liquidity_eth = '0',
+            liquidity_trx = '0',
+            fee_percent = 0.001
+        } = req.body;
+
+        // Validate required fields
+        if (!name || !endpoint || !eth_address || !tron_address) {
+            return res.status(400).json({
+                error: 'Missing required fields',
+                required: {
+                    name: 'Resolver name/identifier',
+                    endpoint: 'Bot API URL (e.g., https://resolver1.com/api)',
+                    eth_address: 'Ethereum wallet address (0x...)',
+                    tron_address: 'TRON wallet address (T...)'
+                },
+                optional: {
+                    supported_directions: 'Array of supported directions [eth→trx, trx→eth]',
+                    liquidity_eth: 'Available ETH liquidity',
+                    liquidity_trx: 'Available TRX liquidity',
+                    fee_percent: 'Fee percentage (e.g., 0.001 for 0.1%)'
+                }
+            });
+        }
+
+        // Validate address formats
+        if (!eth_address.startsWith('0x') || eth_address.length !== 42) {
+            return res.status(400).json({ error: 'Invalid Ethereum address format' });
+        }
+
+        if (!tron_address.startsWith('T') || tron_address.length !== 34) {
+            return res.status(400).json({ error: 'Invalid TRON address format' });
+        }
+
+        // Validate endpoint URL
+        try {
+            const url = new URL(endpoint);
+            if (!url.protocol.startsWith('http')) {
+                throw new Error('Invalid protocol');
+            }
+        } catch (error) {
+            return res.status(400).json({ error: 'Invalid endpoint URL format' });
+        }
+
+        // Validate fee percentage
+        const feePercentNum = parseFloat(fee_percent);
+        if (isNaN(feePercentNum) || feePercentNum < 0 || feePercentNum > 1) {
+            return res.status(400).json({ error: 'Fee percentage must be between 0 and 1' });
+        }
+
+        // Validate supported directions
+        if (!Array.isArray(supported_directions) || 
+            !supported_directions.every(dir => ['eth→trx', 'trx→eth'].includes(dir))) {
+            return res.status(400).json({ 
+                error: 'Invalid supported_directions format. Must be an array containing eth→trx and/or trx→eth' 
+            });
+        }
+
+        // Check if resolver already exists with these addresses
+        const existingResolver = await ResolverModel.getByAddress(eth_address, tron_address);
+        if (existingResolver) {
+            return res.status(400).json({ 
+                error: 'Resolver with these addresses already exists',
+                resolver_id: existingResolver.id
+            });
+        }
+
+        // Create resolver record
+        const resolverData = {
+            name,
+            endpoint,
+            eth_address,
+            tron_address,
+            supported_directions,
+            liquidity_eth,
+            liquidity_trx,
+            fee_percent: feePercentNum,
+            status: 'active'
+        };
+
+        const resolver = await ResolverModel.create(resolverData);
+        
+        // Test resolver endpoint
+        try {
+            const resolverClient = new ResolverClient();
+            const info = await resolverClient.getResolverInfo(endpoint);
+            if (!info.success) {
+                // Don't fail registration, but warn about endpoint issue
+                console.warn(`⚠️ Warning: Resolver endpoint test failed: ${info.error}`);
+            }
+        } catch (error) {
+            console.warn(`⚠️ Warning: Failed to test resolver endpoint: ${error.message}`);
+        }
+
+        res.json({
+            success: true,
+            resolver,
+            message: 'Resolver registered successfully'
+        });
+
+    } catch (error) {
+        console.error('Error registering resolver:', error);
+        res.status(500).json({ error: 'Failed to register resolver' });
+    }
+});
+
 // Create new swap with automatic resolver selection
 app.post('/swaps', async (req, res) => {
     try {
-        const { direction, userEthAddress, userTronAddress, amount } = req.body;
+        const { direction, userEthAddress, userTronAddress, amount, resolverId } = req.body;
+        console.log('📝 Swap request:', { direction, userEthAddress, userTronAddress, amount, resolverId });
 
-        // Validate input (simplified - resolver selection is now automatic)
-        if (!direction || !userEthAddress || !userTronAddress) {
+        // Validate input
+        if (!direction || !userEthAddress || !userTronAddress || !resolverId) {
             return res.status(400).json({ 
                 error: 'Missing required fields',
                 required: {
                     direction: 'eth→trx or trx→eth',
                     userEthAddress: 'Ethereum address (0x...)',
                     userTronAddress: 'TRON address (T...)',
+                    resolverId: 'ID of the selected resolver',
                     amount: 'Swap amount (optional - will use default)'
                 }
             });
@@ -907,9 +1023,52 @@ app.post('/swaps', async (req, res) => {
             return res.status(400).json({ error: 'Invalid TRON address format' });
         }
 
-        // Automatic resolver selection
-        console.log('🔍 Selecting best resolver for swap...');
-        const resolverSelection = await resolverManager.getBestResolver(direction, amount || '0.002');
+        // Get selected resolver
+        console.log(`🔍 Getting resolver with ID ${resolverId}...`);
+        const resolver = await ResolverModel.getById(resolverId);
+        
+        if (!resolver) {
+            return res.status(404).json({ error: 'Selected resolver not found' });
+        }
+
+        // Validate resolver is active and supports the direction
+        if (resolver.status !== 'active') {
+            return res.status(400).json({ error: 'Selected resolver is not active' });
+        }
+
+        if (!resolver.supported_directions.includes(direction)) {
+            return res.status(400).json({ error: `Selected resolver does not support ${direction} swaps` });
+        }
+
+        // Check resolver liquidity
+        try {
+            const resolverClient = new ResolverClient();
+            const info = await resolverClient.getResolverInfo(resolver.endpoint);
+            
+            if (!info.success) {
+                return res.status(400).json({ error: 'Failed to get resolver info' });
+            }
+
+            const liquidity = direction === 'eth→trx' 
+                ? parseFloat(info.data.liquidity.tron)
+                : parseFloat(info.data.liquidity.ethereum);
+            
+            const requiredAmount = direction === 'eth→trx'
+                ? parseFloat(amount || '0.002') * 11265.12
+                : parseFloat(amount || '0.002') / 11265.12;
+
+            if (liquidity < requiredAmount) {
+                return res.status(400).json({ error: 'Selected resolver has insufficient liquidity' });
+            }
+        } catch (error) {
+            console.warn(`⚠️ Warning: Failed to check resolver liquidity: ${error.message}`);
+            // Continue anyway for testing
+        }
+
+        const resolverSelection = {
+            success: true,
+            resolver: resolver
+        };
         
         if (!resolverSelection.success) {
             return res.status(400).json({ 

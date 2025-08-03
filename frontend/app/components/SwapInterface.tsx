@@ -22,6 +22,8 @@ export default function SwapInterface() {
   // Load resolvers when direction changes
   useEffect(() => {
     loadResolvers();
+    // Reset resolver selection when direction changes
+    setFormData(prev => ({ ...prev, selectedResolver: null }));
   }, [formData.direction]);
 
   // Calculate estimate when amount or resolver changes
@@ -36,16 +38,24 @@ export default function SwapInterface() {
   const loadResolvers = async () => {
     try {
       setLoading(true);
+      console.log('🔍 Loading resolvers for direction:', formData.direction);
       const availableResolvers = await apiClient.getResolvers(formData.direction);
+      console.log('📋 Available resolvers:', availableResolvers);
       setResolvers(availableResolvers);
       
       // Auto-select first resolver if available
       if (availableResolvers.length > 0 && !formData.selectedResolver) {
+        console.log('🔄 Auto-selecting first resolver:', availableResolvers[0]);
         setFormData(prev => ({ ...prev, selectedResolver: availableResolvers[0] }));
+      } else {
+        console.log('ℹ️ Not auto-selecting resolver:', {
+          hasResolvers: availableResolvers.length > 0,
+          currentResolver: formData.selectedResolver
+        });
       }
     } catch (err) {
       setError('Failed to load resolvers');
-      console.error('Error loading resolvers:', err);
+      console.error('❌ Error loading resolvers:', err);
     } finally {
       setLoading(false);
     }
@@ -79,6 +89,7 @@ export default function SwapInterface() {
   };
 
   const handleDirectionChange = (direction: 'eth→trx' | 'trx→eth') => {
+    console.log('🔄 Direction changed to:', direction);
     setFormData(prev => ({ 
       ...prev, 
       direction,
@@ -93,6 +104,7 @@ export default function SwapInterface() {
   };
 
   const handleResolverSelect = (resolver: Resolver) => {
+    console.log('🔄 Selecting resolver:', resolver);
     setFormData(prev => ({ ...prev, selectedResolver: resolver }));
     setError(null);
   };
@@ -121,11 +133,17 @@ export default function SwapInterface() {
       setError(null);
 
       // Step 1: Create swap
+      if (!formData.selectedResolver) {
+        throw new Error('No resolver selected');
+      }
+
+      console.log('🚀 Creating swap with resolver:', formData.selectedResolver);
       const response = await apiClient.createSwap(
         formData.direction, 
         formData.amount, 
         walletState.ethAddress, 
-        walletState.tronAddress
+        walletState.tronAddress,
+        formData.selectedResolver.id
       );
       
       // The backend returns a nested structure, so we need to access response.swap

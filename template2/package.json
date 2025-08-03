@@ -1,0 +1,33 @@
+{
+  "name": "resolverx-resolver-bot",
+  "version": "1.0.0",
+  "description": "Forkable resolver bot template for ResolverX cross-chain swaps",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "resolverx",
+    "htlc",
+    "cross-chain",
+    "ethereum",
+    "tron",
+    "swap"
+  ],
+  "author": "ResolverX Team",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "ethers": "^6.8.1",
+    "tronweb": "^5.3.2",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+} 

@@ -2,7 +2,15 @@ import { Resolver, SwapState, ExchangeRate, SwapEstimate } from '../types/swap';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
-class ApiClient {
+export class ApiClient {
+  private static instance: ApiClient;
+
+  static getInstance(): ApiClient {
+    if (!ApiClient.instance) {
+      ApiClient.instance = new ApiClient();
+    }
+    return ApiClient.instance;
+  }
   private baseUrl: string;
 
   constructor(baseUrl: string = API_BASE_URL) {
@@ -37,12 +45,34 @@ class ApiClient {
     return this.request<Resolver[]>('/resolvers-info');
   }
 
+  // Register new resolver
+  async registerResolver(resolverData: {
+    name: string;
+    endpoint: string;
+    eth_address: string;
+    tron_address: string;
+    supported_directions?: ('eth→trx' | 'trx→eth')[];
+    liquidity_eth?: string;
+    liquidity_trx?: string;
+    fee_percent?: number;
+  }): Promise<{
+    success: boolean;
+    resolver: Resolver;
+    message: string;
+  }> {
+    return this.request('/resolvers', {
+      method: 'POST',
+      body: JSON.stringify(resolverData),
+    });
+  }
+
   // Create a new swap
   async createSwap(
     direction: 'eth→trx' | 'trx→eth', 
     amount: string, 
     userEthAddress: string, 
-    userTronAddress: string
+    userTronAddress: string,
+    resolverId: number
   ): Promise<{
     success: boolean;
     swap: {
@@ -78,7 +108,8 @@ class ApiClient {
         direction, 
         amount,
         userEthAddress,
-        userTronAddress
+        userTronAddress,
+        resolverId
       }),
     });
   }

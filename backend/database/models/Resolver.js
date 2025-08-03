@@ -71,6 +71,21 @@ class ResolverModel {
     // Get resolvers by direction
     static async getByDirection(direction) {
         try {
+            console.log('🔍 Getting resolvers for direction:', direction);
+            
+            // First get all active resolvers
+            const { data: allResolvers, error: allError } = await supabase
+                .from('resolvers')
+                .select('*')
+                .eq('status', 'active');
+
+            if (allError) {
+                throw allError;
+            }
+
+            console.log('📋 All active resolvers:', allResolvers);
+
+            // Then filter by direction
             const { data, error } = await supabase
                 .from('resolvers')
                 .select('*')
@@ -83,7 +98,21 @@ class ResolverModel {
                 throw error;
             }
 
-            return data || [];
+            console.log('📋 Filtered resolvers:', data);
+
+            // Manual check of supported directions
+            const filteredResolvers = (data || []).filter(resolver => {
+                console.log('🔍 Checking resolver:', {
+                    id: resolver.id,
+                    name: resolver.name,
+                    supported_directions: resolver.supported_directions,
+                    includes: resolver.supported_directions.includes(direction)
+                });
+                return resolver.supported_directions.includes(direction);
+            });
+
+            console.log('📋 Final filtered resolvers:', filteredResolvers);
+            return filteredResolvers;
         } catch (error) {
             console.error('❌ Get resolvers by direction failed:', error);
             throw error;
